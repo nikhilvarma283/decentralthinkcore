@@ -1,0 +1,71 @@
+version: "3.9"
+
+services:
+  api:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgres://dtcore:dtcore_secret@postgres:5432/decentralthink
+      - OPA_URL=http://opa:8181
+      - ALGORAND_NETWORK=testnet
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      opa:
+        condition: service_started
+    volumes:
+      - ./src:/app/src   # hot-reload in dev
+    restart: unless-stopped
+    networks:
+      - dtcore
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: dtcore
+      POSTGRES_PASSWORD: dtcore_secret
+      POSTGRES_DB: decentralthink
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dtcore -d decentralthink"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - dtcore
+
+  opa:
+    image: openpolicyagent/opa:latest
+    command: run --server --log-level=info /policies
+    ports:
+      - "8181:8181"
+    volumes:
+      - ./src/policy/rego:/policies
+    networks:
+      - dtcore
+
+  # Algorand sandbox (local testnet)
+  algod:
+    image: algorand/algod:latest
+    environment:
+      - NETWORK=testnet
+    ports:
+      - "4001:4001"
+      - "4002:4002"
+    networks:
+      - dtcore
+
+volumes:
+  postgres_data:
+
+networks:
+  dtcore:
+    driver: bridge
