@@ -1,6 +1,4 @@
-const Anthropic = require("@anthropic-ai/sdk");
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const llm = require("../lib/llm");
 
 const DECOMPOSE_SYSTEM = `You are a task decomposition engine. Given a user task, determine whether it needs to be broken into sequential steps or can run as-is.
 
@@ -14,26 +12,23 @@ Example simple: ["What is the capital of France?"]
 Example complex: ["Research the top 3 competitors of Salesforce","Summarize each competitor's pricing model","Compare them in a table"]`;
 
 async function decompose(task, { maxSteps = 5 } = {}) {
-  // Short tasks (<120 chars with no newlines) skip decomposition
+  // Short single-line tasks skip decomposition entirely
   if (task.length < 120 && !task.includes("\n")) {
     return [task];
   }
 
-  const response = await client.messages.create({
-    model: process.env.DEFAULT_MODEL || "claude-sonnet-4-6",
-    max_tokens: 512,
-    system: DECOMPOSE_SYSTEM,
-    messages: [{ role: "user", content: task }],
-  });
-
-  const raw = response.content[0].text.trim();
+  const { content } = await llm.chat(
+    [{ role: "user", content: task }],
+    { system: DECOMPOSE_SYSTEM, maxTokens: 512, temperature: 0.2 }
+  );
 
   let steps;
   try {
-    steps = JSON.parse(raw);
+    // Hermes sometimes wraps JSON in markdown fences — strip them
+    const cleaned = content.replace(/```(?:json)?\n?/g, "").trim();
+    steps = JSON.parse(cleaned);
     if (!Array.isArray(steps) || steps.length === 0) throw new Error("bad shape");
   } catch {
-    // Fallback: treat as single step if parsing fails
     steps = [task];
   }
 

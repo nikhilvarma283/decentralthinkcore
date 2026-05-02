@@ -4,8 +4,11 @@ const db = require("../../lib/db");
 const logger = require("../../lib/logger");
 const hermes = require("../../orchestrator/hermes");
 const { validate, required, isString, maxLen } = require("../../middleware/validate");
+const { optionalAuth } = require("../../middleware/auth");
 
 const router = Router();
+
+router.use(optionalAuth);
 
 const invokeSchema = {
   body: {
@@ -29,7 +32,9 @@ const invokeSchema = {
 // Submit an agent task. Returns invocation_id immediately; task runs async.
 router.post("/", validate(invokeSchema), async (req, res) => {
   const { task, agent_id = "hermes-default", session_id } = req.body;
-  const walletAddress = req.headers["x-wallet-address"] || "anonymous";
+  // Prefer authenticated wallet; fall back to header for anonymous callers
+  const walletAddress = req.walletAddress || req.headers["x-wallet-address"] || "anonymous";
+  const resolvedSessionId = session_id || req.session?.id || null;
 
   const invocationId = uuidv4();
 
@@ -38,7 +43,7 @@ router.post("/", validate(invokeSchema), async (req, res) => {
     await db.query(
       `INSERT INTO invocations (id, session_id, agent_id, task, status)
        VALUES ($1, $2, $3, $4, 'pending')`,
-      [invocationId, session_id || null, agent_id, task]
+      [invocationId, resolvedSessionId, agent_id, task]
     );
   } catch (err) {
     logger.error("invoke: failed to create invocation record", { error: err.message });

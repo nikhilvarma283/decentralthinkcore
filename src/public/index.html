@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DecentralThink Core</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #13131a;
+      --surface2: #1c1c28;
+      --border: #2a2a3d;
+      --accent: #7c5cfc;
+      --accent2: #4f8ef7;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #eab308;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --font: 'Inter', system-ui, sans-serif;
+      --mono: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+    }
+
+    /* ── Nav ── */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2rem;
+      height: 56px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1rem;
+      letter-spacing: -0.02em;
+    }
+
+    .logo-icon {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .nav-tag {
+      font-size: 0.7rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 8px;
+      color: var(--muted);
+    }
+
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.3s;
+      display: inline-block;
+    }
+    .status-dot.ok { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .status-dot.degraded { background: var(--yellow); }
+    .status-dot.error { background: var(--red); }
+
+    /* ── Layout ── */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    .grid { display: grid; gap: 1rem; }
+    .grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .grid-2 { grid-template-columns: repeat(2, 1fr); }
+
+    @media (max-width: 720px) {
+      .grid-3, .grid-2 { grid-template-columns: 1fr; }
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+    }
+
+    .card-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      font-family: var(--mono);
+    }
+
+    .stat-label { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+
+    /* ── Health checks ── */
+    .checks { display: flex; flex-direction: column; gap: 8px; }
+    .check-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.85rem;
+    }
+    .check-name { color: var(--muted); }
+    .badge {
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge.ok { background: rgba(34,197,94,0.15); color: var(--green); }
+    .badge.degraded { background: rgba(234,179,8,0.15); color: var(--yellow); }
+    .badge.unreachable, .badge.error { background: rgba(239,68,68,0.15); color: var(--red); }
+    .badge.unknown { background: var(--surface2); color: var(--muted); }
+
+    /* ── Invoke panel ── */
+    .invoke-panel { grid-column: 1 / -1; }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+
+    textarea, input, select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 0.65rem 0.85rem;
+      font-size: 0.875rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+      resize: vertical;
+    }
+
+    textarea:focus, input:focus { border-color: var(--accent); }
+
+    .field { margin-bottom: 1rem; }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.875rem;
+      transition: all 0.15s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      padding: 0.6rem 1.4rem;
+    }
+    .btn-primary:hover { background: #6d4ee0; }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 0.5rem 1rem;
+      font-size: 0.8rem;
+    }
+    .btn-ghost:hover { color: var(--text); border-color: var(--text); }
+
+    .row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+
+    /* ── Result box ── */
+    .result-box {
+      display: none;
+      margin-top: 1.25rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.78rem;
+    }
+
+    .result-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+    }
+
+    .result-content {
+      padding: 1rem;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 320px;
+      overflow-y: auto;
+      color: #c9d1d9;
+    }
+
+    .result-meta {
+      display: flex;
+      gap: 1.5rem;
+      padding: 0.6rem 1rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    /* ── Invocations table ── */
+    .inv-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+    .inv-table th {
+      text-align: left;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+      padding: 0 0.75rem 0.6rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .inv-table td {
+      padding: 0.7rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .inv-table tr:last-child td { border-bottom: none; }
+    .inv-table tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
+
+    .task-cell {
+      max-width: 280px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+    }
+
+    .cost-pill {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--accent2);
+    }
+
+    .time-cell { color: var(--muted); font-size: 0.78rem; }
+
+    /* ── Spinner ── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+
+    /* ── Divider ── */
+    .section-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin: 2rem 0 1rem;
+    }
+
+    .empty {
+      text-align: center;
+      padding: 2rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.65rem 1.1rem;
+      font-size: 0.83rem;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: all 0.25s;
+      pointer-events: none;
+      z-index: 100;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">
+    <div class="logo-icon">⬡</div>
+    DecentralThink Core
+    <span class="nav-tag">v0.1.0</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px">
+    <span style="font-size:0.75rem;color:var(--green);background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);padding:3px 10px;border-radius:20px;font-weight:600">
+      ⬡ Zero Data Egress
+    </span>
+    <div style="display:flex;align-items:center;gap:8px;font-size:0.82rem;color:var(--muted)">
+      <span class="status-dot" id="nav-dot"></span>
+      <span id="nav-status">checking…</span>
+      <span id="nav-model" style="font-family:var(--mono);font-size:0.72rem;opacity:0.6"></span>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+
+  <!-- Privacy banner -->
+  <div style="background:rgba(124,92,252,0.07);border:1px solid rgba(124,92,252,0.2);border-radius:10px;padding:0.75rem 1.25rem;margin-bottom:1rem;display:flex;align-items:center;gap:12px;font-size:0.82rem">
+    <span style="font-size:1.1rem">🔒</span>
+    <span><strong style="color:var(--accent)">Hermes runs entirely inside this container.</strong> No prompts, tasks, or results are sent to any external API. Your data never leaves your infrastructure.</span>
+  </div>
+
+  <!-- Stats row -->
+  <div class="grid grid-3" style="margin-bottom:1rem">
+    <div class="card">
+      <div class="card-title">Total Invocations</div>
+      <div class="stat-value" id="stat-total">—</div>
+      <div class="stat-label">all time</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Completed</div>
+      <div class="stat-value" style="color:var(--green)" id="stat-completed">—</div>
+      <div class="stat-label">succeeded</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Services</div>
+      <div class="checks" id="health-checks">
+        <div class="check-row"><span class="check-name">api</span><span class="badge unknown">—</span></div>
+        <div class="check-row"><span class="check-name">database</span><span class="badge unknown">—</span></div>
+        <div class="check-row"><span class="check-name">opa</span><span class="badge unknown">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Invoke -->
+  <div class="card invoke-panel">
+    <div class="card-title">Invoke Agent</div>
+
+    <div class="grid grid-2">
+      <div>
+        <div class="field">
+          <label>Task</label>
+          <textarea id="task-input" rows="4" placeholder="What would you like the agent to do?&#10;&#10;e.g. Summarize the key benefits of blockchain-based audit trails in 3 bullet points."></textarea>
+        </div>
+        <div class="row">
+          <div style="flex:1">
+            <label>Agent ID</label>
+            <input id="agent-id" value="hermes-default" placeholder="hermes-default" />
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;justify-content:flex-end;gap:0.75rem">
+        <div class="field" style="margin:0">
+          <label>API Base</label>
+          <input id="api-base" value="" placeholder="http://localhost:3000" />
+        </div>
+        <button class="btn-primary" id="invoke-btn" onclick="invokeAgent()">
+          Run Agent →
+        </button>
+        <button class="btn-ghost" onclick="clearResult()">Clear</button>
+      </div>
+    </div>
+
+    <div class="result-box" id="result-box">
+      <div class="result-header">
+        <div class="result-status" id="result-status">
+          <span class="spinner" id="result-spinner"></span>
+          <span id="result-status-text">Running…</span>
+        </div>
+        <span id="result-inv-id" style="font-family:var(--mono);font-size:0.75rem;color:var(--muted)"></span>
+      </div>
+      <div class="result-content" id="result-content">Waiting for agent…</div>
+      <div class="result-meta">
+        <span id="meta-tokens">tokens: —</span>
+        <span id="meta-cost">cost: —</span>
+        <span id="meta-time">time: —</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent invocations -->
+  <div class="section-title">Recent Invocations</div>
+  <div class="card">
+    <table class="inv-table">
+      <thead>
+        <tr>
+          <th>Task</th>
+          <th>Agent</th>
+          <th>Status</th>
+          <th>Cost</th>
+          <th>Started</th>
+        </tr>
+      </thead>
+      <tbody id="inv-tbody">
+        <tr><td colspan="5" class="empty">No invocations yet — run your first agent above.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+  // ── Config ──────────────────────────────────────────────────────────────
+  function base() {
+    const v = document.getElementById('api-base').value.trim();
+    return v || window.location.origin;
+  }
+
+  // ── Health poll ──────────────────────────────────────────────────────────
+  async function pollHealth() {
+    try {
+      const r = await fetch(`${base()}/health`);
+      const d = await r.json();
+
+      const dot = document.getElementById('nav-dot');
+      const nav = document.getElementById('nav-status');
+
+      dot.className = 'status-dot ' + (d.status === 'ok' ? 'ok' : 'degraded');
+      nav.textContent = d.status === 'ok' ? 'All systems operational' : 'Degraded';
+      if (d.model) document.getElementById('nav-model').textContent = d.model;
+
+      const checks = document.getElementById('health-checks');
+      checks.innerHTML = Object.entries(d.checks).map(([name, status]) =>
+        `<div class="check-row">
+           <span class="check-name">${name}</span>
+           <span class="badge ${status}">${status}</span>
+         </div>`
+      ).join('');
+    } catch {
+      const dot = document.getElementById('nav-dot');
+      dot.className = 'status-dot error';
+      document.getElementById('nav-status').textContent = 'API unreachable';
+    }
+  }
+
+  // ── Invocations list ─────────────────────────────────────────────────────
+  async function loadInvocations() {
+    try {
+      const r = await fetch(`${base()}/api/v1/invocations?limit=20`);
+      if (!r.ok) return;
+      const d = await r.json();
+      renderInvocations(d.invocations || []);
+
+      const total = d.invocations.length;
+      const completed = d.invocations.filter(i => i.status === 'completed').length;
+      document.getElementById('stat-total').textContent = total;
+      document.getElementById('stat-completed').textContent = completed;
+    } catch {}
+  }
+
+  function renderInvocations(invs) {
+    const tbody = document.getElementById('inv-tbody');
+    if (!invs.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">No invocations yet — run your first agent above.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = invs.map(inv => `
+      <tr onclick="showInvDetail('${inv.id}')">
+        <td class="task-cell" title="${esc(inv.task)}">${esc(inv.task)}</td>
+        <td style="font-size:0.78rem;color:var(--muted)">${esc(inv.agent_id)}</td>
+        <td><span class="badge ${inv.status}">${inv.status}</span></td>
+        <td class="cost-pill">${inv.cost ? inv.cost.credits.toFixed(4) + ' cr' : '—'}</td>
+        <td class="time-cell">${timeAgo(inv.started_at)}</td>
+      </tr>
+    `).join('');
+  }
+
+  // ── Invoke ───────────────────────────────────────────────────────────────
+  let pollTimer = null;
+
+  async function invokeAgent() {
+    const task = document.getElementById('task-input').value.trim();
+    if (!task) { toast('Enter a task first'); return; }
+
+    const agentId = document.getElementById('agent-id').value || 'hermes-default';
+    const btn = document.getElementById('invoke-btn');
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+
+    try {
+      const r = await fetch(`${base()}/api/v1/invoke`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task, agent_id: agentId }),
+      });
+      const d = await r.json();
+
+      if (!r.ok) {
+        toast('Error: ' + (d.error || r.status));
+        return;
+      }
+
+      showResultBox(d.invocation_id);
+      startPolling(d.invocation_id);
+      loadInvocations();
+    } catch (e) {
+      toast('Network error — is the server running?');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Run Agent →';
+    }
+  }
+
+  function showResultBox(invId) {
+    const box = document.getElementById('result-box');
+    box.style.display = 'block';
+    document.getElementById('result-inv-id').textContent = invId;
+    document.getElementById('result-status-text').textContent = 'Running…';
+    document.getElementById('result-spinner').style.display = 'inline-block';
+    document.getElementById('result-content').textContent = 'Waiting for agent…';
+    document.getElementById('meta-tokens').textContent = 'tokens: —';
+    document.getElementById('meta-cost').textContent = 'cost: —';
+    document.getElementById('meta-time').textContent = 'time: —';
+    document.getElementById('result-status').querySelector('.status-dot')?.remove();
+  }
+
+  function startPolling(invId) {
+    const start = Date.now();
+    clearInterval(pollTimer);
+    pollTimer = setInterval(async () => {
+      try {
+        const r = await fetch(`${base()}/api/v1/invocations/${invId}`);
+        const d = await r.json();
+
+        if (d.status === 'completed') {
+          clearInterval(pollTimer);
+          document.getElementById('result-status-text').textContent = 'Completed';
+          document.getElementById('result-spinner').style.display = 'none';
+          document.getElementById('result-content').textContent = d.result || '(no result)';
+          const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+          document.getElementById('meta-time').textContent = `time: ${elapsed}s`;
+          if (d.cost) {
+            document.getElementById('meta-cost').textContent = `cost: ${d.cost.credits.toFixed(4)} credits`;
+          }
+          loadInvocations();
+        } else if (d.status === 'failed') {
+          clearInterval(pollTimer);
+          document.getElementById('result-status-text').textContent = 'Failed';
+          document.getElementById('result-spinner').style.display = 'none';
+          document.getElementById('result-content').textContent = 'Error: ' + (d.error || 'Unknown error');
+          loadInvocations();
+        }
+      } catch {}
+    }, 1500);
+  }
+
+  function clearResult() {
+    clearInterval(pollTimer);
+    document.getElementById('result-box').style.display = 'none';
+    document.getElementById('task-input').value = '';
+  }
+
+  async function showInvDetail(id) {
+    try {
+      const r = await fetch(`${base()}/api/v1/invocations/${id}`);
+      const d = await r.json();
+      if (d.result) {
+        showResultBox(id);
+        document.getElementById('result-status-text').textContent = d.status;
+        document.getElementById('result-spinner').style.display = 'none';
+        document.getElementById('result-content').textContent = d.result;
+        if (d.cost) {
+          document.getElementById('meta-cost').textContent = `cost: ${d.cost.credits.toFixed(4)} credits`;
+        }
+      }
+    } catch {}
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
+  function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function timeAgo(iso) {
+    const s = Math.floor((Date.now() - new Date(iso)) / 1000);
+    if (s < 60) return `${s}s ago`;
+    if (s < 3600) return `${Math.floor(s/60)}m ago`;
+    if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+    return new Date(iso).toLocaleDateString();
+  }
+
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 3000);
+  }
+
+  // ── Init ─────────────────────────────────────────────────────────────────
+  // Default API base to current origin
+  document.getElementById('api-base').value = window.location.origin;
+
+  pollHealth();
+  loadInvocations();
+  setInterval(pollHealth, 15000);
+  setInterval(loadInvocations, 10000);
+</script>
+</body>
+</html>

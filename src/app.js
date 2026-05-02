@@ -1,3 +1,4 @@
+const path = require("path");
 const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
@@ -9,7 +10,7 @@ const v1Router = require("./api/v1");
 
 const app = express();
 
-app.use(helmet());
+app.use(helmet({ contentSecurityPolicy: false })); // CSP off for dashboard inline scripts
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
@@ -27,6 +28,9 @@ app.use((req, _res, next) => {
   logger.info(`${req.method} ${req.path}`, { ip: req.ip });
   next();
 });
+
+// Dashboard — serve before 404 handler
+app.use(express.static(path.join(__dirname, "public")));
 
 app.use("/health", healthRouter);
 app.use("/api/v1", v1Router);
