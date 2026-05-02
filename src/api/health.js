@@ -20,9 +20,8 @@ router.get("/", async (_req, res) => {
     checks.database = "unreachable";
   }
 
-  // OPA check
+  // OPA check — Node 20 has global fetch built-in
   try {
-    const fetch = (await import("node-fetch")).default;
     const resp = await fetch(`${process.env.OPA_URL}/health`, {
       signal: AbortSignal.timeout(2000),
     });

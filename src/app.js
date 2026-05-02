@@ -5,6 +5,7 @@ const rateLimit = require("express-rate-limit");
 const logger = require("./lib/logger");
 
 const healthRouter = require("./api/health");
+const v1Router = require("./api/v1");
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use((req, _res, next) => {
 });
 
 app.use("/health", healthRouter);
+app.use("/api/v1", v1Router);
 
 // 404
 app.use((_req, res) => {
