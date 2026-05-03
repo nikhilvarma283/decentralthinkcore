@@ -2,6 +2,7 @@ const { Router } = require("express");
 const db = require("../lib/db");
 const llm = require("../lib/llm");
 const logger = require("../lib/logger");
+const algorand = require("../blockchain/algorand");
 
 const router = Router();
 
@@ -10,6 +11,7 @@ router.get("/", async (_req, res) => {
     api: "ok",
     hermes: "unknown",
     database: "unknown",
+    algorand: "unknown",
     opa: "unknown",
   };
 
@@ -32,6 +34,15 @@ router.get("/", async (_req, res) => {
     checks.database = "unreachable";
   }
 
+  // Algorand check
+  try {
+    const { ok } = await algorand.healthCheck();
+    checks.algorand = ok ? "ok" : "degraded";
+  } catch (err) {
+    logger.warn("Health: Algorand unreachable", { error: err.message });
+    checks.algorand = "unreachable";
+  }
+
   // OPA check
   if (!process.env.OPA_URL) {
     checks.opa = "not-configured";
@@ -47,7 +58,10 @@ router.get("/", async (_req, res) => {
     }
   }
 
-  const allOk = Object.values(checks).every((v) => v === "ok" || v === "not-configured");
+  // "not-configured" and "degraded" are non-fatal; only unreachable brings down health
+  const allOk = Object.values(checks).every(
+    (v) => v === "ok" || v === "not-configured" || v === "degraded"
+  );
   res.status(allOk ? 200 : 503).json({
     status: allOk ? "ok" : "degraded",
     version: process.env.npm_package_version || "0.1.0",
