@@ -2,8 +2,8 @@ const { Router } = require("express");
 const { v4: uuidv4 } = require("uuid");
 const db = require("../../lib/db");
 const logger = require("../../lib/logger");
-const hermes = require("../../orchestrator/hermes");
-const { validate, required, isString, maxLen } = require("../../middleware/validate");
+const cortex = require("../../cortex");
+const { validate } = require("../../middleware/validate");
 const { optionalAuth } = require("../../middleware/auth");
 
 const router = Router();
@@ -31,7 +31,7 @@ const invokeSchema = {
 // POST /api/v1/invoke
 // Submit an agent task. Returns invocation_id immediately; task runs async.
 router.post("/", validate(invokeSchema), async (req, res) => {
-  const { task, agent_id = "hermes-default", session_id } = req.body;
+  const { task, agent_id = "cortex-default", session_id } = req.body;
   // Prefer authenticated wallet; fall back to header for anonymous callers
   const walletAddress = req.walletAddress || req.headers["x-wallet-address"] || "anonymous";
   const resolvedSessionId = session_id || req.session?.id || null;
@@ -50,17 +50,17 @@ router.post("/", validate(invokeSchema), async (req, res) => {
     return res.status(500).json({ error: "Failed to create invocation" });
   }
 
-  // Run orchestration asynchronously — don't await
+  // Spawn Cortex session asynchronously — Cortex lives only for this invocation
   setImmediate(() => {
-    hermes
+    cortex
       .run(invocationId, task, {
         agentId: agent_id,
-        sessionId: session_id,
+        sessionId: resolvedSessionId,
         walletAddress,
-        model: process.env.DEFAULT_MODEL,
+        model: process.env.HERMES_MODEL,
       })
       .catch((err) => {
-        logger.error("invoke: async orchestration error", {
+        logger.error("Cortex: async session error", {
           invocationId,
           error: err.message,
         });
