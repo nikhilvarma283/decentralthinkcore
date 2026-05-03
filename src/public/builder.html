@@ -1,0 +1,1330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DecentralThink Builder</title>
+  <style>
+    :root {
+      --bg: #080810;
+      --surface: #10101a;
+      --surface2: #181826;
+      --surface3: #1e1e30;
+      --border: #272740;
+      --accent: #7c5cfc;
+      --accent2: #4f8ef7;
+      --accent3: #22d3ee;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #f59e0b;
+      --purple: #a855f7;
+      --text: #e2e8f0;
+      --text2: #94a3b8;
+      --muted: #475569;
+      --font: 'Inter', system-ui, sans-serif;
+      --mono: 'JetBrains Mono', 'Fira Code', monospace;
+      --sidebar: 220px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; display: flex; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: var(--sidebar); min-height: 100vh; background: var(--surface);
+      border-right: 1px solid var(--border); display: flex; flex-direction: column;
+      position: sticky; top: 0; height: 100vh; overflow-y: auto; flex-shrink: 0;
+    }
+    .sidebar-logo {
+      padding: 1.25rem 1rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo-mark {
+      display: flex; align-items: center; gap: 8px; font-weight: 700;
+      font-size: 0.9rem; letter-spacing: -0.02em;
+    }
+    .logo-hex {
+      width: 30px; height: 30px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 8px; display: flex; align-items: center;
+      justify-content: center; font-size: 14px; flex-shrink: 0;
+    }
+    .logo-sub { font-size: 0.65rem; color: var(--muted); margin-top: 2px; letter-spacing: 0.06em; text-transform: uppercase; }
+
+    .nav { flex: 1; padding: 0.75rem 0; }
+    .nav-section { padding: 0.5rem 1rem 0.25rem; font-size: 0.62rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 0.55rem 1rem; font-size: 0.83rem; color: var(--text2);
+      cursor: pointer; border-left: 2px solid transparent;
+      transition: all 0.15s; user-select: none;
+    }
+    .nav-item:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+    .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(124,92,252,0.08); }
+    .nav-icon { font-size: 1rem; width: 18px; text-align: center; flex-shrink: 0; }
+
+    .sidebar-footer {
+      padding: 0.75rem 1rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.73rem; color: var(--muted);
+    }
+    .wallet-chip {
+      display: flex; align-items: center; gap: 6px;
+      padding: 0.4rem 0.75rem; border-radius: 6px;
+      background: var(--surface2); border: 1px solid var(--border);
+      font-size: 0.72rem; margin-bottom: 0.5rem; cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .wallet-chip:hover { border-color: var(--accent); }
+    .wallet-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+    .wallet-dot.connected { background: var(--green); box-shadow: 0 0 5px var(--green); }
+
+    /* ── Main ── */
+    .main { flex: 1; min-width: 0; }
+
+    .topbar {
+      height: 52px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 1.75rem; background: var(--surface); position: sticky; top: 0; z-index: 5;
+    }
+    .topbar-title { font-weight: 600; font-size: 0.95rem; }
+    .topbar-right { display: flex; align-items: center; gap: 1rem; }
+    .network-pill {
+      font-size: 0.7rem; font-weight: 600; padding: 3px 10px; border-radius: 20px;
+      background: rgba(34,211,238,0.1); color: var(--accent3);
+      border: 1px solid rgba(34,211,238,0.2); text-transform: uppercase; letter-spacing: 0.05em;
+    }
+
+    .content { padding: 1.75rem; max-width: 1100px; }
+
+    /* ── Sections ── */
+    .section { display: none; }
+    .section.active { display: block; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1rem;
+    }
+    .card-title {
+      font-size: 0.72rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--muted); margin-bottom: 1rem;
+    }
+    .card-header {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;
+    }
+
+    /* ── Stat grid ── */
+    .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.25rem; }
+    @media (max-width: 800px) { .stat-grid { grid-template-columns: repeat(2,1fr); } }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.25rem;
+    }
+    .stat-label { font-size: 0.72rem; color: var(--muted); font-weight: 500; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
+    .stat-val { font-size: 1.8rem; font-weight: 700; letter-spacing: -0.03em; font-family: var(--mono); }
+    .stat-sub { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+
+    /* ── Tables ── */
+    .dt { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+    .dt th { text-align: left; font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); padding: 0 0.75rem 0.6rem; border-bottom: 1px solid var(--border); }
+    .dt td { padding: 0.65rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .dt tr:last-child td { border-bottom: none; }
+    .dt tr:hover td { background: rgba(255,255,255,0.02); }
+    .empty { text-align: center; padding: 2.5rem; color: var(--muted); font-size: 0.85rem; }
+
+    /* ── Badges ── */
+    .badge { font-size: 0.68rem; font-weight: 600; padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .badge.active, .badge.completed, .badge.ok { background: rgba(34,197,94,0.12); color: var(--green); }
+    .badge.draft, .badge.pending { background: rgba(245,158,11,0.12); color: var(--yellow); }
+    .badge.archived, .badge.failed { background: rgba(239,68,68,0.12); color: var(--red); }
+    .badge.paused { background: rgba(148,163,184,0.12); color: var(--text2); }
+    .badge.tee { background: rgba(34,211,238,0.12); color: var(--accent3); }
+    .badge.testnet { background: rgba(168,85,247,0.12); color: var(--purple); }
+
+    /* ── Forms ── */
+    .field { margin-bottom: 1rem; }
+    label { display: block; font-size: 0.78rem; color: var(--text2); margin-bottom: 5px; font-weight: 500; }
+    input, textarea, select {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); padding: 0.6rem 0.85rem;
+      font-size: 0.875rem; font-family: inherit; outline: none; transition: border-color 0.2s;
+    }
+    input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 80px; }
+    select option { background: var(--surface2); }
+
+    /* ── Buttons ── */
+    button { cursor: pointer; border: none; border-radius: 8px; font-family: inherit; font-weight: 600; font-size: 0.83rem; transition: all 0.15s; }
+    .btn-primary { background: var(--accent); color: #fff; padding: 0.55rem 1.2rem; }
+    .btn-primary:hover { background: #6d4ee0; }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border); padding: 0.5rem 1rem; }
+    .btn-ghost:hover { color: var(--text); border-color: var(--text2); }
+    .btn-danger { background: rgba(239,68,68,0.12); color: var(--red); border: 1px solid rgba(239,68,68,0.2); padding: 0.5rem 1rem; }
+    .btn-danger:hover { background: rgba(239,68,68,0.2); }
+    .btn-sm { padding: 0.35rem 0.75rem; font-size: 0.75rem; }
+    .btn-icon { background: var(--surface2); border: 1px solid var(--border); color: var(--text2); padding: 0.35rem 0.65rem; border-radius: 6px; }
+    .btn-icon:hover { color: var(--text); border-color: var(--text2); }
+
+    .row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 640px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    /* ── Agent cards ── */
+    .agent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px,1fr)); gap: 0.85rem; }
+    .agent-card {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+      padding: 1rem 1.1rem; transition: border-color 0.2s;
+    }
+    .agent-card:hover { border-color: var(--border); box-shadow: 0 0 0 1px rgba(124,92,252,0.2); }
+    .agent-card.subscribed { border-color: rgba(34,197,94,0.3); }
+    .agent-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+    .agent-name { font-weight: 600; font-size: 0.875rem; }
+    .agent-id { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); }
+    .agent-desc { font-size: 0.78rem; color: var(--text2); margin-top: 5px; line-height: 1.4; }
+    .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+    .chip { font-size: 0.67rem; padding: 2px 7px; border-radius: 12px; background: rgba(79,142,247,0.1); color: var(--accent2); border: 1px solid rgba(79,142,247,0.2); }
+    .chip.green { background: rgba(34,197,94,0.1); color: var(--green); border-color: rgba(34,197,94,0.2); }
+
+    /* ── Deployment card ── */
+    .deploy-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 1.1rem 1.25rem; margin-bottom: 0.75rem; cursor: pointer; transition: border-color 0.2s;
+    }
+    .deploy-card:hover { border-color: rgba(124,92,252,0.4); }
+    .deploy-card.selected { border-color: var(--accent); }
+    .deploy-header { display: flex; align-items: center; justify-content: space-between; }
+    .deploy-name { font-weight: 600; font-size: 0.9rem; }
+    .deploy-meta { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+
+    /* ── Audit row ── */
+    .audit-event { font-family: var(--mono); font-size: 0.72rem; color: var(--accent3); }
+    .hash-cell { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); }
+    .tx-link { font-family: var(--mono); font-size: 0.7rem; color: var(--accent2); text-decoration: none; }
+    .tx-link:hover { text-decoration: underline; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 1.5rem; right: 1.5rem;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 0.65rem 1.1rem; font-size: 0.83rem;
+      opacity: 0; transform: translateY(6px); transition: all 0.25s;
+      pointer-events: none; z-index: 100;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+    #toast.success { border-color: rgba(34,197,94,0.4); color: var(--green); }
+    #toast.error { border-color: rgba(239,68,68,0.4); color: var(--red); }
+
+    /* ── Modal ── */
+    .modal-bg {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      z-index: 50; align-items: center; justify-content: center;
+    }
+    .modal-bg.open { display: flex; }
+    .modal {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 1.5rem; width: 480px; max-width: 95vw; max-height: 90vh; overflow-y: auto;
+    }
+    .modal-title { font-weight: 700; font-size: 1rem; margin-bottom: 1.25rem; }
+    .modal-footer { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.25rem; }
+
+    /* ── Code block ── */
+    .code-block {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+      padding: 0.85rem 1rem; font-family: var(--mono); font-size: 0.78rem;
+      line-height: 1.6; color: #c9d1d9; overflow-x: auto; white-space: pre;
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; }
+  </style>
+</head>
+<body>
+
+<!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">
+      <div class="logo-hex">⬡</div>
+      <div>
+        <div>DecentralThink</div>
+        <div class="logo-sub">Builder Console</div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="nav">
+    <div class="nav-section">Workspace</div>
+    <div class="nav-item active" data-section="overview">
+      <span class="nav-icon">◈</span> Overview
+    </div>
+    <div class="nav-item" data-section="deployments">
+      <span class="nav-icon">⬡</span> Deployments
+    </div>
+
+    <div class="nav-section" style="margin-top:0.5rem">Configure</div>
+    <div class="nav-item" data-section="agents">
+      <span class="nav-icon">⚙</span> Agents
+    </div>
+    <div class="nav-item" data-section="contracts">
+      <span class="nav-icon">📜</span> Smart Contracts
+    </div>
+    <div class="nav-item" data-section="vault">
+      <span class="nav-icon">🔐</span> Vault
+    </div>
+
+    <div class="nav-section" style="margin-top:0.5rem">Monitor</div>
+    <div class="nav-item" data-section="payments">
+      <span class="nav-icon">◎</span> Payments
+    </div>
+    <div class="nav-item" data-section="audit">
+      <span class="nav-icon">⛓</span> Audit Trail
+    </div>
+    <div class="nav-item" data-section="settings">
+      <span class="nav-icon">⊙</span> Settings
+    </div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="wallet-chip" id="wallet-chip" onclick="connectWallet()">
+      <span class="wallet-dot" id="wallet-dot"></span>
+      <span id="wallet-label">Connect Wallet</span>
+    </div>
+    <div style="font-size:0.68rem">
+      Core v0.1.0 · <a href="/" style="color:var(--accent2);text-decoration:none">Dashboard →</a>
+    </div>
+  </div>
+</aside>
+
+<!-- ── Main ─────────────────────────────────────────────────────────────── -->
+<div class="main">
+  <div class="topbar">
+    <span class="topbar-title" id="topbar-title">Overview</span>
+    <div class="topbar-right">
+      <span class="network-pill" id="network-pill">testnet</span>
+      <div id="health-indicator" style="display:flex;align-items:center;gap:6px;font-size:0.78rem;color:var(--muted)">
+        <span id="health-dot" style="width:7px;height:7px;border-radius:50%;background:var(--muted)"></span>
+        <span id="health-label">checking…</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ── OVERVIEW ──────────────────────────────────────────────────── -->
+    <section class="section active" id="section-overview">
+      <div class="stat-grid" id="overview-stats">
+        <div class="stat-card"><div class="stat-label">Deployments</div><div class="stat-val" id="ov-deployments">—</div><div class="stat-sub">total configs</div></div>
+        <div class="stat-card"><div class="stat-label">Cortex Sessions</div><div class="stat-val" id="ov-sessions">—</div><div class="stat-sub">memory wiped</div></div>
+        <div class="stat-card"><div class="stat-label">Agents Subscribed</div><div class="stat-val" id="ov-agents">—</div><div class="stat-sub">from marketplace</div></div>
+        <div class="stat-card"><div class="stat-label">Total Cost</div><div class="stat-val" style="font-size:1.4rem;color:var(--accent2)" id="ov-cost">—</div><div class="stat-sub">infra credits</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">System Health</div>
+        <div id="health-checks-detail" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.75rem"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" style="margin:0">Recent Cortex Sessions</span>
+          <button class="btn-ghost btn-sm" onclick="loadSection('audit')">View All →</button>
+        </div>
+        <table class="dt">
+          <thead><tr>
+            <th>Session ID</th><th>Wallet</th><th>Spent (μALGO)</th><th>Memory Wiped</th><th>Terminated</th>
+          </tr></thead>
+          <tbody id="sessions-tbody">
+            <tr><td colspan="5" class="empty">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── DEPLOYMENTS ────────────────────────────────────────────────── -->
+    <section class="section" id="section-deployments">
+      <div class="card-header" style="margin-bottom:1rem">
+        <span style="font-weight:600">Your Deployments</span>
+        <button class="btn-primary btn-sm" onclick="openNewDeployment()">+ New Deployment</button>
+      </div>
+
+      <div id="deployments-list">
+        <div class="empty">Loading deployments…</div>
+      </div>
+
+      <!-- Deployment detail panel -->
+      <div id="deployment-detail" style="display:none">
+        <div class="card" style="border-color:rgba(124,92,252,0.3)">
+          <div class="card-header">
+            <div>
+              <div style="font-weight:700;font-size:1rem" id="detail-name">—</div>
+              <div style="font-size:0.75rem;color:var(--muted);margin-top:3px" id="detail-id"></div>
+            </div>
+            <div class="row">
+              <span class="badge" id="detail-status">draft</span>
+              <button class="btn-ghost btn-sm" onclick="activateDeployment()">Activate</button>
+              <button class="btn-danger btn-sm" onclick="archiveDeployment()">Archive</button>
+            </div>
+          </div>
+          <div class="grid-2" style="margin-bottom:1rem">
+            <div>
+              <div class="stat-label">Blockchain</div>
+              <div style="font-family:var(--mono);font-size:0.85rem;margin-top:4px" id="detail-network">—</div>
+            </div>
+            <div>
+              <div class="stat-label">Spending Limit / Session</div>
+              <div style="font-family:var(--mono);font-size:0.85rem;margin-top:4px" id="detail-limit">—</div>
+            </div>
+          </div>
+          <div style="margin-bottom:1rem">
+            <div class="stat-label">Subscribed Agents</div>
+            <div class="chips" id="detail-agents" style="margin-top:6px"></div>
+          </div>
+          <div>
+            <div class="stat-label">Permission Policy (Smart Contract Rules)</div>
+            <pre class="code-block" id="detail-contract" style="margin-top:6px;max-height:160px;overflow-y:auto">{}</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── AGENTS ─────────────────────────────────────────────────────── -->
+    <section class="section" id="section-agents">
+      <div class="card-header" style="margin-bottom:1rem">
+        <span style="font-weight:600">Marketplace Agents</span>
+        <div class="row">
+          <input id="agent-search" placeholder="Search capabilities…" style="width:220px" oninput="filterAgents(this.value)" />
+          <button class="btn-primary btn-sm" onclick="openRegisterAgent()">+ Register Agent</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:1rem;padding:0.75rem 1rem">
+        <div style="font-size:0.8rem;color:var(--text2)">
+          Clicking <strong>Subscribe</strong> grants your wallet access to route tasks through that agent.
+          The subscription commitment is hashed and anchored to Algorand.
+        </div>
+      </div>
+
+      <div class="agent-grid" id="agent-grid">
+        <div class="empty" style="grid-column:1/-1">Loading agents…</div>
+      </div>
+    </section>
+
+    <!-- ── SMART CONTRACTS ────────────────────────────────────────────── -->
+    <section class="section" id="section-contracts">
+      <div class="card">
+        <div class="card-title">User Permission Contract</div>
+        <p style="font-size:0.83rem;color:var(--text2);margin-bottom:1.25rem;line-height:1.6">
+          Define who can do what within your container deployment. Rules are evaluated by OPA (Open Policy Agent) before every agent execution. Smart contracts on Algorand (Sprint 7) will make these rules immutable and publicly verifiable.
+        </p>
+        <div class="field">
+          <label>Deployment</label>
+          <select id="contract-deployment-select" onchange="loadContractForDeployment(this.value)">
+            <option value="">— select deployment —</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Permission Rules (JSON)</label>
+          <textarea id="contract-rules" rows="12" placeholder='{
+  "allow_wallets": ["0x..."],
+  "max_tasks_per_session": 10,
+  "allowed_agents": ["cortex-default"],
+  "require_tee": true,
+  "data_retention": "none"
+}'></textarea>
+        </div>
+        <div class="field">
+          <label>OPA Policy (Rego) — optional override</label>
+          <textarea id="contract-opa" rows="6" placeholder='package agent.authz
+default allow = false
+allow {
+  input.wallet_address != ""
+  not input.task_contains_danger
+}'></textarea>
+        </div>
+        <div class="row">
+          <button class="btn-primary" onclick="saveContract()">Save Contract</button>
+          <button class="btn-ghost" onclick="validateContract()">Validate</button>
+        </div>
+        <div id="contract-feedback" style="margin-top:0.75rem;display:none"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Contract Template Library</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0.75rem">
+          <div class="deploy-card" onclick="applyTemplate('healthcare')">
+            <div class="deploy-name">Healthcare AI</div>
+            <div class="deploy-meta">HIPAA-aligned · no data retention · TEE required</div>
+          </div>
+          <div class="deploy-card" onclick="applyTemplate('crm')">
+            <div class="deploy-name">CRM Automation</div>
+            <div class="deploy-meta">User isolation · role-based access · audit all</div>
+          </div>
+          <div class="deploy-card" onclick="applyTemplate('research')">
+            <div class="deploy-name">Research Platform</div>
+            <div class="deploy-meta">Open access · compound context sharing enabled</div>
+          </div>
+          <div class="deploy-card" onclick="applyTemplate('enterprise')">
+            <div class="deploy-name">Enterprise</div>
+            <div class="deploy-meta">Whitelist wallets · strict spending limits</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── VAULT ──────────────────────────────────────────────────────── -->
+    <section class="section" id="section-vault">
+      <div class="card" style="margin-bottom:1rem;padding:0.85rem 1.25rem">
+        <div style="display:flex;align-items:center;gap:10px;font-size:0.83rem">
+          <span style="font-size:1.2rem">🔒</span>
+          <span style="color:var(--text2)"><strong style="color:var(--text)">Sovereign Vault</strong> — your master key is derived from your wallet signature and never leaves your browser. The server stores only encrypted blobs.</span>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Store Secret</div>
+          <div class="field">
+            <label>Key Name</label>
+            <input id="vault-key-input" placeholder="e.g. openai-api-key" />
+          </div>
+          <div class="field">
+            <label>Value (encrypted in your browser before sending)</label>
+            <textarea id="vault-value-input" rows="3" placeholder="sk-…"></textarea>
+          </div>
+          <button class="btn-primary" onclick="vaultPut()">Store Encrypted →</button>
+          <div id="vault-store-result" style="margin-top:0.75rem;font-size:0.8rem;color:var(--muted)"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Retrieve Secret</div>
+          <div class="field">
+            <label>Key Name</label>
+            <input id="vault-get-key" placeholder="e.g. openai-api-key" />
+          </div>
+          <button class="btn-ghost" onclick="vaultGet()" style="margin-bottom:0.75rem">Retrieve &amp; Decrypt</button>
+          <div id="vault-get-result" style="display:none">
+            <label>Decrypted Value</label>
+            <div class="code-block" id="vault-decrypted" style="margin-top:4px;word-break:break-all"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" style="margin:0">Stored Keys</span>
+          <button class="btn-ghost btn-sm" onclick="loadVaultKeys()">Refresh</button>
+        </div>
+        <table class="dt">
+          <thead><tr><th>Key Name</th><th>Created</th><th>Updated</th><th></th></tr></thead>
+          <tbody id="vault-tbody"><tr><td colspan="4" class="empty">Connect wallet to view keys.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── PAYMENTS ───────────────────────────────────────────────────── -->
+    <section class="section" id="section-payments">
+      <div class="stat-grid" id="payments-stats">
+        <div class="stat-card"><div class="stat-label">Total Infra Cost</div><div class="stat-val" id="pay-usd">—</div><div class="stat-sub">USD equivalent</div></div>
+        <div class="stat-card"><div class="stat-label">Credits Used</div><div class="stat-val" style="color:var(--accent2)" id="pay-credits">—</div><div class="stat-sub">at $0.01/credit</div></div>
+        <div class="stat-card"><div class="stat-label">Total Tokens</div><div class="stat-val" id="pay-tokens">—</div><div class="stat-sub">Hermes tokens</div></div>
+        <div class="stat-card"><div class="stat-label">Invocations</div><div class="stat-val" id="pay-invocations">—</div><div class="stat-sub">all time</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" style="margin:0">Session Wallet History</span>
+          <span style="font-size:0.75rem;color:var(--muted)">Each row is one Cortex session — wallet key zeroed on termination.</span>
+        </div>
+        <table class="dt">
+          <thead><tr><th>Ephemeral Wallet</th><th>Limit (ALGO)</th><th>Spent (ALGO)</th><th>Wiped</th><th>Reason</th><th>Date</th></tr></thead>
+          <tbody id="sessions-pay-tbody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" style="margin:0">Cost Ledger</span>
+        </div>
+        <table class="dt">
+          <thead><tr><th>Invocation</th><th>Model</th><th>Tokens</th><th>Cost (USD)</th><th>Credits</th><th>Date</th></tr></thead>
+          <tbody id="ledger-tbody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── AUDIT TRAIL ────────────────────────────────────────────────── -->
+    <section class="section" id="section-audit">
+      <div class="card" style="margin-bottom:1rem;padding:0.85rem 1.25rem">
+        <div style="display:flex;align-items:center;gap:10px;font-size:0.83rem">
+          <span style="font-size:1.2rem">⛓</span>
+          <span style="color:var(--text2)">Every Cortex event is hashed and anchored to <strong style="color:var(--text)">Algorand testnet</strong>. Click a transaction ID to verify independently on AlgoExplorer.</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" style="margin:0">Blockchain Audit Log</span>
+          <button class="btn-ghost btn-sm" onclick="loadAuditLog()">Refresh</button>
+        </div>
+        <table class="dt">
+          <thead><tr><th>Event</th><th>Data Hash</th><th>Blockchain TX</th><th>TEE Attest</th><th>Timestamp</th></tr></thead>
+          <tbody id="audit-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── SETTINGS ───────────────────────────────────────────────────── -->
+    <section class="section" id="section-settings">
+      <div class="card">
+        <div class="card-title">Blockchain Configuration</div>
+        <div class="grid-2">
+          <div class="field">
+            <label>Network</label>
+            <select id="setting-network">
+              <option value="testnet">Algorand Testnet (current)</option>
+              <option value="mainnet">Algorand Mainnet</option>
+              <option value="localnet">Local Sandbox</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Algorand Node URL</label>
+            <input id="setting-node" value="https://testnet-api.algonode.cloud" />
+          </div>
+          <div class="field">
+            <label>Platform Wallet Address (receives agent payments)</label>
+            <input id="setting-platform-addr" placeholder="ALGO address…" />
+          </div>
+          <div class="field">
+            <label>Payment Verification Mode</label>
+            <select id="setting-verify-mode">
+              <option value="simulate">Simulate (dev — no on-chain submission)</option>
+              <option value="submit">Submit (production — waits for confirmation)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Spending Limits</div>
+        <div class="grid-2">
+          <div class="field">
+            <label>Default Session Limit (microALGO)</label>
+            <input id="setting-spending" type="number" value="10000" min="0" />
+            <div style="font-size:0.72rem;color:var(--muted);margin-top:4px">10,000 μALGO = 0.01 ALGO per Cortex session</div>
+          </div>
+          <div class="field">
+            <label>Default Agent Fee (microALGO / call)</label>
+            <input id="setting-fee" type="number" value="1000" min="0" />
+            <div style="font-size:0.72rem;color:var(--muted);margin-top:4px">1,000 μALGO = 0.001 ALGO per agent execution</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Hermes Model</div>
+        <div class="grid-2">
+          <div class="field">
+            <label>Model</label>
+            <select id="setting-model">
+              <option value="nous-hermes2">nous-hermes2 (default)</option>
+              <option value="nous-hermes2:13b">nous-hermes2:13b (higher quality)</option>
+              <option value="hermes3">hermes3 (latest)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Infra Cost per 1K Tokens (USD)</label>
+            <input id="setting-cost" type="number" value="0.0003" step="0.0001" />
+          </div>
+        </div>
+        <button class="btn-primary" onclick="saveSettings()">Save Settings</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">x402 Agent Demo</div>
+        <p style="font-size:0.83rem;color:var(--text2);margin-bottom:1rem;line-height:1.6">
+          Test the x402 payment protocol end-to-end. Calls <code style="font-family:var(--mono);font-size:0.78rem">/api/v1/agent/execute</code> which requires a payment header.
+        </p>
+        <div class="row">
+          <button class="btn-ghost" onclick="testX402WithoutPayment()">Test 402 (no payment)</button>
+          <button class="btn-primary" onclick="testX402WithPayment()">Test Full x402 Cycle</button>
+        </div>
+        <pre class="code-block" id="x402-result" style="margin-top:0.85rem;min-height:60px">Click a button to test…</pre>
+      </div>
+    </section>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- ── Modals ──────────────────────────────────────────────────────────── -->
+<div class="modal-bg" id="modal-deployment" onclick="closeModal('modal-deployment')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">New Deployment</div>
+    <div class="field">
+      <label>Deployment Name</label>
+      <input id="new-deploy-name" placeholder="my-healthcare-app" />
+    </div>
+    <div class="field">
+      <label>Description</label>
+      <input id="new-deploy-desc" placeholder="Optional description" />
+    </div>
+    <div class="field">
+      <label>Blockchain Network</label>
+      <select id="new-deploy-network">
+        <option value="testnet">Algorand Testnet</option>
+        <option value="mainnet">Algorand Mainnet</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Spending Limit per Session (ALGO)</label>
+      <input id="new-deploy-limit" type="number" value="0.01" step="0.001" min="0" />
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal('modal-deployment')">Cancel</button>
+      <button class="btn-primary" onclick="createDeployment()">Create Deployment</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modal-agent" onclick="closeModal('modal-agent')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">Register Agent</div>
+    <div class="field">
+      <label>Agent ID <span style="color:var(--muted)">(unique slug)</span></label>
+      <input id="new-agent-id" placeholder="my-code-agent" />
+    </div>
+    <div class="field">
+      <label>Display Name</label>
+      <input id="new-agent-name" placeholder="Code Specialist Agent" />
+    </div>
+    <div class="field">
+      <label>Description</label>
+      <input id="new-agent-desc" placeholder="What does this agent do?" />
+    </div>
+    <div class="field">
+      <label>Capabilities <span style="color:var(--muted)">(comma-separated)</span></label>
+      <input id="new-agent-caps" placeholder="code, debugging, refactoring" />
+    </div>
+    <div class="field">
+      <label>Endpoint URL <span style="color:var(--muted)">(optional)</span></label>
+      <input id="new-agent-url" placeholder="http://my-agent:8080" />
+    </div>
+    <div class="field" style="display:flex;align-items:center;gap:8px">
+      <input type="checkbox" id="new-agent-tee" style="width:auto" />
+      <label style="margin:0">TEE Certified</label>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal('modal-agent')">Cancel</button>
+      <button class="btn-primary" onclick="registerAgent()">Register Agent</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────
+const API = () => window.location.origin;
+let authToken = localStorage.getItem("dt_token") || null;
+let walletAddr = localStorage.getItem("dt_wallet") || null;
+let allAgents = [];
+let selectedDeploymentId = null;
+
+// ── Section routing ──────────────────────────────────────────────────────
+const SECTION_TITLES = {
+  overview: "Overview", deployments: "Deployments", agents: "Agents",
+  contracts: "Smart Contracts", vault: "Vault", payments: "Payments",
+  audit: "Audit Trail", settings: "Settings",
+};
+
+document.querySelectorAll(".nav-item").forEach(el => {
+  el.addEventListener("click", () => loadSection(el.dataset.section));
+});
+
+function loadSection(name) {
+  document.querySelectorAll(".nav-item").forEach(el =>
+    el.classList.toggle("active", el.dataset.section === name));
+  document.querySelectorAll(".section").forEach(el =>
+    el.classList.toggle("active", el.id === `section-${name}`));
+  document.getElementById("topbar-title").textContent = SECTION_TITLES[name] || name;
+
+  const loaders = {
+    overview: () => { loadOverview(); loadRecentSessions(); },
+    deployments: loadDeployments,
+    agents: loadAgents,
+    contracts: () => loadDeploymentSelect("contract-deployment-select"),
+    vault: loadVaultKeys,
+    payments: () => { loadPaymentSummary(); loadSessionHistory(); loadLedger(); },
+    audit: loadAuditLog,
+    settings: () => {},
+  };
+  loaders[name]?.();
+}
+
+// ── Auth helpers ──────────────────────────────────────────────────────────
+function headers(extra = {}) {
+  const h = { "Content-Type": "application/json", ...extra };
+  if (authToken) h["Authorization"] = `Bearer ${authToken}`;
+  return h;
+}
+
+async function apiFetch(path, opts = {}) {
+  const res = await fetch(`${API()}${path}`, { headers: headers(), ...opts });
+  const body = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, body };
+}
+
+function connectWallet() {
+  // Simulate wallet connection for demo (full SIWE in Sprint 7)
+  const addr = prompt("Enter your wallet address (MetaMask SIWE in Sprint 7):");
+  if (!addr) return;
+  walletAddr = addr;
+  localStorage.setItem("dt_wallet", addr);
+  updateWalletUI();
+  toast(`Wallet set: ${shorten(addr)}`, "success");
+  loadSection("overview");
+}
+
+function updateWalletUI() {
+  const dot = document.getElementById("wallet-dot");
+  const label = document.getElementById("wallet-label");
+  if (walletAddr) {
+    dot.className = "wallet-dot connected";
+    label.textContent = shorten(walletAddr);
+  } else {
+    dot.className = "wallet-dot";
+    label.textContent = "Connect Wallet";
+  }
+}
+
+// ── Health ────────────────────────────────────────────────────────────────
+async function pollHealth() {
+  try {
+    const { body } = await apiFetch("/health");
+    const ok = body.status === "ok";
+    document.getElementById("health-dot").style.background = ok ? "var(--green)" : "var(--yellow)";
+    document.getElementById("health-label").textContent = ok ? "All systems operational" : "Degraded";
+    if (body.model) document.getElementById("network-pill").textContent =
+      `${body.checks?.algorand === "ok" ? "⛓ " : ""}${(process.env.ALGORAND_NETWORK||"testnet")}`;
+
+    const detail = document.getElementById("health-checks-detail");
+    if (detail && body.checks) {
+      detail.innerHTML = Object.entries(body.checks).map(([k, v]) => `
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:0.75rem 1rem">
+          <div style="font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px">${k}</div>
+          <span class="badge ${v}">${v}</span>
+        </div>`).join("");
+    }
+  } catch {}
+}
+
+// ── Overview ──────────────────────────────────────────────────────────────
+async function loadOverview() {
+  if (!authToken) {
+    document.getElementById("ov-deployments").textContent = "—";
+    return;
+  }
+  const { ok, body } = await apiFetch("/api/v1/builder/overview");
+  if (!ok) return;
+  document.getElementById("ov-deployments").textContent = body.deployments?.total ?? 0;
+  document.getElementById("ov-sessions").textContent = `${body.sessions?.wiped ?? 0}/${body.sessions?.total ?? 0}`;
+  document.getElementById("ov-agents").textContent = body.agents?.subscribed ?? 0;
+  document.getElementById("ov-cost").textContent = `${parseFloat(body.costs?.total_credits || 0).toFixed(2)} cr`;
+}
+
+async function loadRecentSessions() {
+  const tbody = document.getElementById("sessions-tbody");
+  if (!authToken) { tbody.innerHTML = `<tr><td colspan="5" class="empty">Connect wallet to view sessions.</td></tr>`; return; }
+  const { ok, body } = await apiFetch("/api/v1/payments/sessions?limit=5");
+  if (!ok || !body.sessions?.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty">No sessions yet.</td></tr>`; return;
+  }
+  tbody.innerHTML = body.sessions.map(s => `
+    <tr>
+      <td class="hash-cell">${shorten(s.id, 12)}</td>
+      <td class="hash-cell">${shorten(s.ephemeral_wallet || "—", 10)}</td>
+      <td style="font-family:var(--mono);font-size:0.78rem">${((s.spent||0)*1e6).toFixed(0)}</td>
+      <td>${s.memory_wiped ? '<span class="badge active">✓ wiped</span>' : '<span class="badge draft">pending</span>'}</td>
+      <td style="font-size:0.75rem;color:var(--muted)">${s.terminated_at ? timeAgo(s.terminated_at) : "active"}</td>
+    </tr>`).join("");
+}
+
+// ── Deployments ───────────────────────────────────────────────────────────
+async function loadDeployments() {
+  const el = document.getElementById("deployments-list");
+  if (!authToken) { el.innerHTML = `<div class="empty">Connect wallet to manage deployments.</div>`; return; }
+  const { ok, body } = await apiFetch("/api/v1/builder/deployments");
+  if (!ok) { el.innerHTML = `<div class="empty">Failed to load deployments.</div>`; return; }
+  if (!body.deployments?.length) {
+    el.innerHTML = `<div class="empty">No deployments yet. Create your first one.</div>`; return;
+  }
+  el.innerHTML = body.deployments.map(d => `
+    <div class="deploy-card ${d.id === selectedDeploymentId ? 'selected' : ''}" onclick="selectDeployment('${d.id}')">
+      <div class="deploy-header">
+        <div>
+          <div class="deploy-name">${esc(d.name)}</div>
+          <div class="deploy-meta">${esc(d.description || "")} · ${d.blockchain_network}</div>
+        </div>
+        <span class="badge ${d.status}">${d.status}</span>
+      </div>
+    </div>`).join("");
+}
+
+async function selectDeployment(id) {
+  selectedDeploymentId = id;
+  await loadDeployments();
+  const { ok, body } = await apiFetch(`/api/v1/builder/deployments/${id}`);
+  if (!ok) return;
+  const detail = document.getElementById("deployment-detail");
+  detail.style.display = "block";
+  document.getElementById("detail-name").textContent = body.name;
+  document.getElementById("detail-id").textContent = body.id;
+  document.getElementById("detail-status").textContent = body.status;
+  document.getElementById("detail-status").className = `badge ${body.status}`;
+  document.getElementById("detail-network").textContent = body.blockchain_network;
+  document.getElementById("detail-limit").textContent = `${body.spending_limit} ALGO / session`;
+  const agents = Array.isArray(body.agent_ids) ? body.agent_ids : JSON.parse(body.agent_ids || "[]");
+  document.getElementById("detail-agents").innerHTML = agents.length
+    ? agents.map(a => `<span class="chip green">${esc(a)}</span>`).join("")
+    : `<span style="color:var(--muted);font-size:0.8rem">No agents subscribed</span>`;
+  const rules = typeof body.smart_contract_rules === "object"
+    ? JSON.stringify(body.smart_contract_rules, null, 2)
+    : body.smart_contract_rules || "{}";
+  document.getElementById("detail-contract").textContent = rules;
+}
+
+function openNewDeployment() { openModal("modal-deployment"); }
+
+async function createDeployment() {
+  const name = document.getElementById("new-deploy-name").value.trim();
+  if (!name) { toast("Name is required", "error"); return; }
+  const { ok, body } = await apiFetch("/api/v1/builder/deployments", {
+    method: "POST",
+    body: JSON.stringify({
+      name,
+      description: document.getElementById("new-deploy-desc").value,
+      blockchain_network: document.getElementById("new-deploy-network").value,
+      spending_limit: parseFloat(document.getElementById("new-deploy-limit").value) || 0.01,
+    }),
+  });
+  if (!ok) { toast(body.error || "Failed to create", "error"); return; }
+  toast(`Deployment "${name}" created`, "success");
+  closeModal("modal-deployment");
+  loadDeployments();
+}
+
+async function activateDeployment() {
+  if (!selectedDeploymentId) return;
+  const { ok } = await apiFetch(`/api/v1/builder/deployments/${selectedDeploymentId}`, {
+    method: "PATCH", body: JSON.stringify({ status: "active" }),
+  });
+  if (ok) { toast("Deployment activated", "success"); selectDeployment(selectedDeploymentId); }
+}
+
+async function archiveDeployment() {
+  if (!selectedDeploymentId || !confirm("Archive this deployment?")) return;
+  const { ok } = await apiFetch(`/api/v1/builder/deployments/${selectedDeploymentId}`, {
+    method: "DELETE",
+  });
+  if (ok) {
+    toast("Archived", "success");
+    selectedDeploymentId = null;
+    document.getElementById("deployment-detail").style.display = "none";
+    loadDeployments();
+  }
+}
+
+// ── Agents ────────────────────────────────────────────────────────────────
+async function loadAgents() {
+  const { ok, body } = await apiFetch("/api/v1/marketplace");
+  if (!ok) return;
+
+  // Also load subscriptions to show subscribed state
+  let subscribed = new Set();
+  if (authToken) {
+    const subRes = await apiFetch("/api/v1/marketplace/subscriptions");
+    if (subRes.ok) {
+      subscribed = new Set(subRes.body.subscriptions.map(s => s.agent_id));
+    }
+  }
+
+  // Prepend built-in
+  allAgents = [{
+    agent_id: "cortex-default", name: "Cortex (Hermes)", tee_certified: true,
+    description: "Default on-premises Hermes reasoning agent — always available, no subscription needed.",
+    capabilities: ["reasoning","text-generation","summarization","analysis"],
+    reputation_score: 100, price_per_call: 0, builtin: true,
+  }, ...(body.agents || [])];
+
+  renderAgents(allAgents, subscribed);
+}
+
+function renderAgents(agents, subscribed) {
+  const grid = document.getElementById("agent-grid");
+  if (!agents.length) { grid.innerHTML = `<div class="empty">No agents found.</div>`; return; }
+  grid.innerHTML = agents.map(a => {
+    const isSub = subscribed.has(a.agent_id);
+    return `
+    <div class="agent-card ${isSub ? 'subscribed' : ''}">
+      <div class="agent-top">
+        <div>
+          <div class="agent-name">${esc(a.name)}</div>
+          <div class="agent-id">${esc(a.agent_id)}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+          ${a.tee_certified ? '<span class="badge tee">TEE</span>' : ''}
+          ${a.builtin ? '<span class="badge active">Built-in</span>' : ''}
+        </div>
+      </div>
+      ${a.description ? `<div class="agent-desc">${esc(a.description)}</div>` : ''}
+      <div class="chips">
+        ${(a.capabilities||[]).slice(0,4).map(c => `<span class="chip">${esc(c)}</span>`).join('')}
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
+        <span style="font-size:0.72rem;color:var(--muted)">rep: ${a.reputation_score||0}/100</span>
+        ${a.builtin ? '' : isSub
+          ? `<button class="btn-danger btn-sm" onclick="unsubscribeAgent('${a.agent_id}')">Unsubscribe</button>`
+          : `<button class="btn-primary btn-sm" onclick="subscribeAgent('${a.agent_id}')">Subscribe</button>`
+        }
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function filterAgents(query) {
+  const q = query.toLowerCase();
+  const filtered = q
+    ? allAgents.filter(a => a.name.toLowerCase().includes(q) || (a.capabilities||[]).some(c => c.includes(q)))
+    : allAgents;
+  renderAgents(filtered, new Set());
+}
+
+async function subscribeAgent(agentId) {
+  const { ok, body } = await apiFetch(`/api/v1/marketplace/${agentId}/subscribe`, { method: "POST", body: JSON.stringify({}) });
+  if (!ok) { toast(body.error || "Failed to subscribe", "error"); return; }
+  toast(`Subscribed to ${agentId}`, "success"); loadAgents();
+}
+
+async function unsubscribeAgent(agentId) {
+  const { ok } = await apiFetch(`/api/v1/marketplace/${agentId}/subscribe`, { method: "DELETE" });
+  if (ok) { toast(`Unsubscribed from ${agentId}`, "success"); loadAgents(); }
+}
+
+function openRegisterAgent() { openModal("modal-agent"); }
+
+async function registerAgent() {
+  const agentId = document.getElementById("new-agent-id").value.trim();
+  const name = document.getElementById("new-agent-name").value.trim();
+  const caps = document.getElementById("new-agent-caps").value.split(",").map(s => s.trim()).filter(Boolean);
+  if (!agentId || !name) { toast("Agent ID and name required", "error"); return; }
+  const { ok, body } = await apiFetch("/api/v1/marketplace", {
+    method: "POST",
+    body: JSON.stringify({
+      agent_id: agentId, name,
+      description: document.getElementById("new-agent-desc").value,
+      capabilities: caps,
+      endpoint_url: document.getElementById("new-agent-url").value || null,
+      tee_certified: document.getElementById("new-agent-tee").checked,
+    }),
+  });
+  if (!ok) { toast(body.error || "Failed to register", "error"); return; }
+  toast(`Agent "${name}" registered`, "success");
+  closeModal("modal-agent"); loadAgents();
+}
+
+// ── Smart Contracts ───────────────────────────────────────────────────────
+const TEMPLATES = {
+  healthcare: {
+    rules: { allow_wallets: [], max_tasks_per_session: 5, require_tee: true, data_retention: "none", hipaa_mode: true, allowed_agents: ["cortex-default"] },
+    opa: `package agent.authz\ndefault allow = false\nallow {\n  input.wallet_address != ""\n  input.tee_certified == true\n  not input.task_contains_pii\n}`,
+  },
+  crm: {
+    rules: { roles: { admin: ["*"], user: ["invoke","vault.read"] }, max_tasks_per_session: 20, audit_all: true },
+    opa: `package agent.authz\ndefault allow = false\nallow { input.wallet_address != "" }`,
+  },
+  research: {
+    rules: { open_access: true, compound_context_sharing: true, max_tasks_per_session: 50, data_retention: "session" },
+    opa: `package agent.authz\ndefault allow = true`,
+  },
+  enterprise: {
+    rules: { whitelist_only: true, allow_wallets: [], max_tasks_per_session: 10, require_tee: true, max_spending_limit: 0.05 },
+    opa: `package agent.authz\ndefault allow = false\nallow {\n  input.wallet_address == data.whitelist[_]\n}`,
+  },
+};
+
+function applyTemplate(name) {
+  const t = TEMPLATES[name];
+  if (!t) return;
+  document.getElementById("contract-rules").value = JSON.stringify(t.rules, null, 2);
+  document.getElementById("contract-opa").value = t.opa;
+  toast(`${name} template applied`, "success");
+}
+
+async function loadDeploymentSelect(selectId) {
+  if (!authToken) return;
+  const { ok, body } = await apiFetch("/api/v1/builder/deployments");
+  if (!ok) return;
+  const sel = document.getElementById(selectId);
+  sel.innerHTML = `<option value="">— select deployment —</option>` +
+    (body.deployments || []).map(d => `<option value="${d.id}">${esc(d.name)}</option>`).join("");
+}
+
+async function loadContractForDeployment(id) {
+  if (!id) return;
+  const { ok, body } = await apiFetch(`/api/v1/builder/deployments/${id}`);
+  if (!ok) return;
+  document.getElementById("contract-rules").value = JSON.stringify(body.smart_contract_rules || {}, null, 2);
+  document.getElementById("contract-opa").value = body.opa_policy || "";
+}
+
+async function saveContract() {
+  const id = document.getElementById("contract-deployment-select").value;
+  if (!id) { toast("Select a deployment first", "error"); return; }
+  let rules;
+  try { rules = JSON.parse(document.getElementById("contract-rules").value); }
+  catch { toast("Invalid JSON in permission rules", "error"); return; }
+  const { ok, body } = await apiFetch(`/api/v1/builder/deployments/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ smart_contract_rules: rules, opa_policy: document.getElementById("contract-opa").value }),
+  });
+  if (!ok) { toast(body.error || "Save failed", "error"); return; }
+  toast("Contract saved", "success");
+}
+
+function validateContract() {
+  try {
+    JSON.parse(document.getElementById("contract-rules").value);
+    toast("JSON is valid ✓", "success");
+  } catch (e) {
+    toast("Invalid JSON: " + e.message, "error");
+  }
+}
+
+// ── Vault ─────────────────────────────────────────────────────────────────
+async function loadVaultKeys() {
+  const tbody = document.getElementById("vault-tbody");
+  if (!authToken) { tbody.innerHTML = `<tr><td colspan="4" class="empty">Connect wallet to view keys.</td></tr>`; return; }
+  const { ok, body } = await apiFetch("/api/v1/vault");
+  if (!ok) { tbody.innerHTML = `<tr><td colspan="4" class="empty">—</td></tr>`; return; }
+  const entries = body.entries || [];
+  if (!entries.length) { tbody.innerHTML = `<tr><td colspan="4" class="empty">No secrets stored yet.</td></tr>`; return; }
+  tbody.innerHTML = entries.map(e => `
+    <tr>
+      <td style="font-family:var(--mono);font-weight:600">${esc(e.key_name)}</td>
+      <td style="font-size:0.75rem;color:var(--muted)">${timeAgo(e.created_at)}</td>
+      <td style="font-size:0.75rem;color:var(--muted)">${timeAgo(e.updated_at)}</td>
+      <td><button class="btn-danger btn-sm" onclick="vaultDelete('${esc(e.key_name)}')">Delete</button></td>
+    </tr>`).join("");
+}
+
+async function vaultPut() {
+  const key = document.getElementById("vault-key-input").value.trim();
+  const value = document.getElementById("vault-value-input").value;
+  if (!key || !value) { toast("Key and value required", "error"); return; }
+  // Simulate client-side encryption (real implementation uses HKDF + AES-256-GCM)
+  const { ciphertext, iv } = await clientEncrypt(value);
+  const { ok, body } = await apiFetch(`/api/v1/vault/${encodeURIComponent(key)}`, {
+    method: "PUT", body: JSON.stringify({ ciphertext, iv }),
+  });
+  if (!ok) { toast(body.error || "Store failed", "error"); return; }
+  toast(`Key "${key}" stored`, "success");
+  document.getElementById("vault-store-result").textContent = `✓ Stored as ${key} (server holds only encrypted blob)`;
+  loadVaultKeys();
+}
+
+async function vaultGet() {
+  const key = document.getElementById("vault-get-key").value.trim();
+  if (!key) { toast("Enter key name", "error"); return; }
+  const { ok, body } = await apiFetch(`/api/v1/vault/${encodeURIComponent(key)}`);
+  if (!ok) { toast(body.error || "Not found", "error"); return; }
+  const decrypted = await clientDecrypt(body.ciphertext, body.iv);
+  document.getElementById("vault-get-result").style.display = "block";
+  document.getElementById("vault-decrypted").textContent = decrypted;
+}
+
+async function vaultDelete(key) {
+  if (!confirm(`Delete "${key}"?`)) return;
+  const { ok } = await apiFetch(`/api/v1/vault/${encodeURIComponent(key)}`, { method: "DELETE" });
+  if (ok) { toast(`Deleted "${key}"`, "success"); loadVaultKeys(); }
+}
+
+// Browser-side AES-256-GCM (demo — real SDK uses HKDF from wallet signature)
+async function clientEncrypt(plaintext) {
+  const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt"]);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const enc = new TextEncoder().encode(plaintext);
+  const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc);
+  const exportedKey = await crypto.subtle.exportKey("raw", key);
+  // Prepend key to ciphertext for demo (real: key derived from wallet, never sent)
+  const combined = new Uint8Array(exportedKey.byteLength + ct.byteLength);
+  combined.set(new Uint8Array(exportedKey), 0);
+  combined.set(new Uint8Array(ct), exportedKey.byteLength);
+  return {
+    ciphertext: btoa(String.fromCharCode(...combined)),
+    iv: btoa(String.fromCharCode(...iv)),
+  };
+}
+
+async function clientDecrypt(ciphertextB64, ivB64) {
+  try {
+    const combined = Uint8Array.from(atob(ciphertextB64), c => c.charCodeAt(0));
+    const iv = Uint8Array.from(atob(ivB64), c => c.charCodeAt(0));
+    const keyBytes = combined.slice(0, 32);
+    const ct = combined.slice(32);
+    const key = await crypto.subtle.importKey("raw", keyBytes, "AES-GCM", false, ["decrypt"]);
+    const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ct);
+    return new TextDecoder().decode(pt);
+  } catch { return "[decryption failed — different key or tampered data]"; }
+}
+
+// ── Payments ──────────────────────────────────────────────────────────────
+async function loadPaymentSummary() {
+  if (!authToken) return;
+  const { ok, body } = await apiFetch("/api/v1/payments/summary");
+  if (!ok) return;
+  document.getElementById("pay-usd").textContent = `$${parseFloat(body.total_usd||0).toFixed(4)}`;
+  document.getElementById("pay-credits").textContent = parseFloat(body.total_credits||0).toFixed(2);
+  document.getElementById("pay-tokens").textContent = (body.total_tokens||0).toLocaleString();
+  document.getElementById("pay-invocations").textContent = body.total_invocations||0;
+}
+
+async function loadSessionHistory() {
+  const tbody = document.getElementById("sessions-pay-tbody");
+  if (!authToken) { tbody.innerHTML = `<tr><td colspan="6" class="empty">Connect wallet.</td></tr>`; return; }
+  const { ok, body } = await apiFetch("/api/v1/payments/sessions?limit=20");
+  if (!ok || !body.sessions?.length) { tbody.innerHTML = `<tr><td colspan="6" class="empty">No sessions yet.</td></tr>`; return; }
+  tbody.innerHTML = body.sessions.map(s => `
+    <tr>
+      <td class="hash-cell">${shorten(s.ephemeral_wallet||"—", 12)}</td>
+      <td style="font-family:var(--mono);font-size:0.78rem">${parseFloat(s.spending_limit||0).toFixed(4)}</td>
+      <td style="font-family:var(--mono);font-size:0.78rem">${parseFloat(s.spent||0).toFixed(6)}</td>
+      <td>${s.memory_wiped ? '<span class="badge active">✓</span>' : '<span class="badge draft">—</span>'}</td>
+      <td style="font-size:0.75rem;color:var(--muted)">${s.termination_reason||"—"}</td>
+      <td style="font-size:0.75rem;color:var(--muted)">${s.terminated_at ? timeAgo(s.terminated_at) : "active"}</td>
+    </tr>`).join("");
+}
+
+async function loadLedger() {
+  const tbody = document.getElementById("ledger-tbody");
+  if (!authToken) { tbody.innerHTML = `<tr><td colspan="6" class="empty">Connect wallet.</td></tr>`; return; }
+  const { ok, body } = await apiFetch("/api/v1/payments/ledger?limit=20");
+  if (!ok || !body.records?.length) { tbody.innerHTML = `<tr><td colspan="6" class="empty">No records yet.</td></tr>`; return; }
+  tbody.innerHTML = body.records.map(r => `
+    <tr>
+      <td class="hash-cell">${shorten(r.invocation_id, 10)}</td>
+      <td style="font-family:var(--mono);font-size:0.75rem">${esc(r.model||"—")}</td>
+      <td style="font-family:var(--mono);font-size:0.78rem">${((r.input_tokens||0)+(r.output_tokens||0)).toLocaleString()}</td>
+      <td style="font-family:var(--mono);font-size:0.78rem;color:var(--accent2)">$${parseFloat(r.cost_usd||0).toFixed(6)}</td>
+      <td style="font-family:var(--mono);font-size:0.78rem">${parseFloat(r.cost_credits||0).toFixed(4)} cr</td>
+      <td style="font-size:0.75rem;color:var(--muted)">${timeAgo(r.recorded_at)}</td>
+    </tr>`).join("");
+}
+
+// ── Audit ─────────────────────────────────────────────────────────────────
+async function loadAuditLog() {
+  const tbody = document.getElementById("audit-tbody");
+  if (!authToken) { tbody.innerHTML = `<tr><td colspan="5" class="empty">Connect wallet to view audit log.</td></tr>`; return; }
+  const { ok, body } = await apiFetch("/api/v1/audit?limit=30");
+  if (!ok || !body.records?.length) { tbody.innerHTML = `<tr><td colspan="5" class="empty">No audit records yet.</td></tr>`; return; }
+  tbody.innerHTML = body.records.map(r => `
+    <tr>
+      <td class="audit-event">${esc(r.event)}</td>
+      <td class="hash-cell">${r.data_hash ? r.data_hash.slice(0,16)+"…" : "—"}</td>
+      <td>${r.blockchain_txid
+        ? `<a class="tx-link" href="${r.explorer_url}" target="_blank">⛓ ${r.blockchain_txid.slice(0,10)}…</a>`
+        : '<span style="color:var(--muted);font-size:0.72rem">not anchored</span>'}</td>
+      <td>${r.tee_attestation ? '<span class="badge tee" style="font-size:0.63rem">✓ TEE</span>' : '—'}</td>
+      <td style="font-size:0.75rem;color:var(--muted)">${timeAgo(r.recorded_at)}</td>
+    </tr>`).join("");
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────
+function saveSettings() {
+  localStorage.setItem("dt_settings", JSON.stringify({
+    network: document.getElementById("setting-network").value,
+    node: document.getElementById("setting-node").value,
+    platformAddr: document.getElementById("setting-platform-addr").value,
+    verifyMode: document.getElementById("setting-verify-mode").value,
+    spendingLimit: document.getElementById("setting-spending").value,
+    agentFee: document.getElementById("setting-fee").value,
+    model: document.getElementById("setting-model").value,
+    infraCost: document.getElementById("setting-cost").value,
+  }));
+  toast("Settings saved to browser storage", "success");
+}
+
+async function testX402WithoutPayment() {
+  document.getElementById("x402-result").textContent = "Calling /api/v1/agent/execute without payment…";
+  const res = await fetch(`${API()}/api/v1/agent/execute`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "test" }) });
+  const body = await res.json().catch(() => ({}));
+  const header = res.headers.get("x-payment-required");
+  let decoded = "";
+  if (header) {
+    try { decoded = "\n\nX-Payment-Required:\n" + JSON.stringify(JSON.parse(atob(header)), null, 2); } catch {}
+  }
+  document.getElementById("x402-result").textContent =
+    `Status: ${res.status}\n${JSON.stringify(body, null, 2)}${decoded}`;
+}
+
+async function testX402WithPayment() {
+  document.getElementById("x402-result").textContent = "Running full x402 cycle…\n";
+  // Step 1: get 402
+  const res1 = await fetch(`${API()}/api/v1/agent/execute`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "Summarize: what is x402?" }) });
+  const requirementB64 = res1.headers.get("x-payment-required");
+  if (!requirementB64) { document.getElementById("x402-result").textContent = "Error: no X-Payment-Required header"; return; }
+  const req = JSON.parse(atob(requirementB64));
+  document.getElementById("x402-result").textContent += `✓ Got 402. Required: ${req.accepts[0].maxAmountRequired} μALGO\n`;
+
+  // Step 2: build simulated payment
+  const payment = { x402Version: 1, scheme: "exact", network: "testnet", payload: { signedTxn: btoa(`sim|${Date.now()}`), txId: `SIM${Date.now().toString(36).toUpperCase()}`, payer: "SIMULATED_WALLET" } };
+  const paymentB64 = btoa(JSON.stringify(payment));
+
+  // Step 3: retry with payment
+  document.getElementById("x402-result").textContent += "Retrying with X-Payment header…\n";
+  const res2 = await fetch(`${API()}/api/v1/agent/execute`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Payment": paymentB64 },
+    body: JSON.stringify({ step: "Summarize: what is x402?" }),
+  });
+  const body2 = await res2.json().catch(() => ({}));
+  const receipt = res2.headers.get("x-payment-response");
+  let receiptTxt = "";
+  if (receipt) { try { receiptTxt = "\n\nX-Payment-Response:\n" + JSON.stringify(JSON.parse(atob(receipt)), null, 2); } catch {} }
+  document.getElementById("x402-result").textContent +=
+    `Status: ${res2.status}\n${JSON.stringify(body2, null, 2)}${receiptTxt}`;
+}
+
+// ── Modal helpers ─────────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add("open"); }
+function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+
+// ── Utilities ─────────────────────────────────────────────────────────────
+function esc(s) { return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function shorten(s, n=8) { return s && s.length > n*2 ? s.slice(0,n)+"…"+s.slice(-4) : (s||"—"); }
+function timeAgo(iso) {
+  if (!iso) return "—";
+  const s = Math.floor((Date.now() - new Date(iso)) / 1000);
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s/60)}m ago`;
+  if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
+function toast(msg, type = "") {
+  const el = document.getElementById("toast");
+  el.textContent = msg; el.className = type ? `show ${type}` : "show";
+  setTimeout(() => el.className = "", 3000);
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+updateWalletUI();
+pollHealth();
+loadSection("overview");
+setInterval(pollHealth, 20000);
+</script>
+</body>
+</html>

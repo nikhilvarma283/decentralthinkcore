@@ -7,6 +7,7 @@ const auditRouter = require("./audit");
 const marketplaceRouter = require("./marketplace");
 const paymentsRouter = require("./payments");
 const agentRouter = require("./agent");
+const builderRouter = require("./builder");
 
 const router = Router();
 
@@ -18,5 +19,6 @@ router.use("/audit", auditRouter);
 router.use("/marketplace", marketplaceRouter);
 router.use("/payments", paymentsRouter);
 router.use("/agent", agentRouter);
+router.use("/builder", builderRouter);
 
 module.exports = router;

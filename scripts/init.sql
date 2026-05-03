@@ -168,3 +168,27 @@ CREATE TABLE agent_subscriptions (
 
 CREATE INDEX idx_subscriptions_subscriber ON agent_subscriptions(subscriber_address);
 CREATE INDEX idx_subscriptions_agent      ON agent_subscriptions(agent_id);
+
+-- ─── Builder deployments ─────────────────────────────────────────────────────
+-- Each row is a builder's named container deployment configuration.
+-- Builders use the graphical interface to define blockchain, agents, and
+-- user permission rules. smart_contract_rules is a JSON policy document.
+CREATE TABLE builder_deployments (
+  id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  owner_address       TEXT NOT NULL,
+  name                TEXT NOT NULL,
+  description         TEXT DEFAULT '',
+  blockchain_network  TEXT NOT NULL DEFAULT 'testnet',
+  spending_limit      NUMERIC(18,6) DEFAULT 0.01,
+  agent_ids           JSONB DEFAULT '[]',
+  smart_contract_rules JSONB DEFAULT '{}',
+  opa_policy          TEXT DEFAULT '',
+  status              TEXT NOT NULL DEFAULT 'draft'
+                        CHECK (status IN ('draft','active','paused','archived')),
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (owner_address, name)
+);
+
+CREATE INDEX idx_deployments_owner  ON builder_deployments(owner_address);
+CREATE INDEX idx_deployments_status ON builder_deployments(status);
