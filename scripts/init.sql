@@ -146,3 +146,25 @@ CREATE TABLE marketplace_agents (
 );
 
 CREATE INDEX idx_marketplace_active ON marketplace_agents(active);
+CREATE INDEX idx_marketplace_agent_id ON marketplace_agents(agent_id);
+
+-- ─── Agent subscriptions (Builder → Agent) ───────────────────────────────────
+-- A "subscription" is a builder's authorization to route tasks to an agent.
+-- capability_commitment is SHA-256(agentId + capability + agent_secret),
+-- proving the agent has the capability without revealing implementation.
+-- In Sprint 6 this becomes a full ZK commitment on-chain.
+CREATE TABLE agent_subscriptions (
+  id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  subscriber_address TEXT NOT NULL,              -- wallet of the subscribing builder/user
+  agent_id           TEXT NOT NULL REFERENCES marketplace_agents(agent_id) ON DELETE CASCADE,
+  capabilities       JSONB DEFAULT '[]',          -- subset of agent capabilities granted
+  commitment_hash    TEXT,                        -- SHA-256 capability commitment
+  subscribed_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at         TIMESTAMPTZ,                 -- null = perpetual
+  revoked_at         TIMESTAMPTZ,
+  active             BOOLEAN DEFAULT true,
+  UNIQUE (subscriber_address, agent_id)
+);
+
+CREATE INDEX idx_subscriptions_subscriber ON agent_subscriptions(subscriber_address);
+CREATE INDEX idx_subscriptions_agent      ON agent_subscriptions(agent_id);

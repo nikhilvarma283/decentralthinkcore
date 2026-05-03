@@ -318,6 +318,32 @@
       font-size: 0.85rem;
     }
 
+    /* ── Agent cards ── */
+    .agent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.75rem; }
+    .agent-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.1rem;
+    }
+    .agent-card:hover { border-color: var(--accent); }
+    .agent-name { font-weight: 600; font-size: 0.9rem; margin-bottom: 4px; }
+    .agent-id-tag { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); }
+    .capability-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+    .chip {
+      font-size: 0.68rem;
+      padding: 2px 7px;
+      border-radius: 12px;
+      background: rgba(79,142,247,0.12);
+      color: var(--accent2);
+      border: 1px solid rgba(79,142,247,0.2);
+    }
+    .tee-badge {
+      font-size: 0.68rem; padding: 2px 7px; border-radius: 12px;
+      background: rgba(34,197,94,0.1); color: var(--green);
+      border: 1px solid rgba(34,197,94,0.2);
+    }
+
     /* ── Toast ── */
     #toast {
       position: fixed;
@@ -405,7 +431,7 @@
         <div class="row">
           <div style="flex:1">
             <label>Agent ID</label>
-            <input id="agent-id" value="hermes-default" placeholder="hermes-default" />
+            <input id="agent-id" value="cortex-default" placeholder="cortex-default" />
           </div>
         </div>
       </div>
@@ -439,6 +465,14 @@
     </div>
   </div>
 
+  <!-- Marketplace agents -->
+  <div class="section-title">ZK Marketplace — Registered Agents</div>
+  <div id="marketplace-section">
+    <div class="agent-grid" id="agent-grid">
+      <div class="empty" style="grid-column:1/-1">Loading agents…</div>
+    </div>
+  </div>
+
   <!-- Recent invocations -->
   <div class="section-title">Recent Invocations</div>
   <div class="card">
@@ -449,11 +483,12 @@
           <th>Agent</th>
           <th>Status</th>
           <th>Cost</th>
+          <th>Audit</th>
           <th>Started</th>
         </tr>
       </thead>
       <tbody id="inv-tbody">
-        <tr><td colspan="5" class="empty">No invocations yet — run your first agent above.</td></tr>
+        <tr><td colspan="6" class="empty">No invocations yet — run your first agent above.</td></tr>
       </tbody>
     </table>
   </div>
@@ -514,7 +549,7 @@
   function renderInvocations(invs) {
     const tbody = document.getElementById('inv-tbody');
     if (!invs.length) {
-      tbody.innerHTML = '<tr><td colspan="5" class="empty">No invocations yet — run your first agent above.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">No invocations yet — run your first agent above.</td></tr>';
       return;
     }
     tbody.innerHTML = invs.map(inv => `
@@ -523,8 +558,53 @@
         <td style="font-size:0.78rem;color:var(--muted)">${esc(inv.agent_id)}</td>
         <td><span class="badge ${inv.status}">${inv.status}</span></td>
         <td class="cost-pill">${inv.cost ? inv.cost.credits.toFixed(4) + ' cr' : '—'}</td>
+        <td>${inv.blockchain_txid
+          ? `<a href="https://testnet.algoexplorer.io/tx/${inv.blockchain_txid}" target="_blank"
+               style="font-family:var(--mono);font-size:0.68rem;color:var(--accent2);text-decoration:none"
+               title="${inv.blockchain_txid}">⬡ ${inv.blockchain_txid.slice(0,8)}…</a>`
+          : '<span style="color:var(--muted);font-size:0.75rem">—</span>'}</td>
         <td class="time-cell">${timeAgo(inv.started_at)}</td>
       </tr>
+    `).join('');
+  }
+
+  // ── Marketplace ───────────────────────────────────────────────────────────
+  async function loadMarketplace() {
+    try {
+      const r = await fetch(`${base()}/api/v1/marketplace`);
+      if (!r.ok) return;
+      const d = await r.json();
+      renderAgents(d.agents || []);
+    } catch {}
+  }
+
+  function renderAgents(agents) {
+    const grid = document.getElementById('agent-grid');
+    // Always show the built-in Cortex agent
+    const builtIn = [{
+      agent_id: 'cortex-default',
+      name: 'Cortex (Hermes)',
+      description: 'Default on-premises Hermes reasoning agent — always available',
+      capabilities: ['reasoning', 'text-generation', 'summarization', 'analysis'],
+      tee_certified: true,
+      reputation_score: 100,
+    }, ...agents];
+
+    grid.innerHTML = builtIn.map(a => `
+      <div class="agent-card" onclick="document.getElementById('agent-id').value='${esc(a.agent_id)}'">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <div>
+            <div class="agent-name">${esc(a.name)}</div>
+            <div class="agent-id-tag">${esc(a.agent_id)}</div>
+          </div>
+          ${a.tee_certified ? '<span class="tee-badge">TEE</span>' : ''}
+        </div>
+        ${a.description ? `<div style="font-size:0.78rem;color:var(--muted);margin-top:6px;line-height:1.4">${esc(a.description)}</div>` : ''}
+        <div class="capability-chips">
+          ${(a.capabilities || []).slice(0,5).map(c => `<span class="chip">${esc(c)}</span>`).join('')}
+        </div>
+        ${a.reputation_score > 0 ? `<div style="font-size:0.72rem;color:var(--muted);margin-top:6px">rep: ${a.reputation_score}/100</div>` : ''}
+      </div>
     `).join('');
   }
 
@@ -655,8 +735,10 @@
 
   pollHealth();
   loadInvocations();
+  loadMarketplace();
   setInterval(pollHealth, 15000);
   setInterval(loadInvocations, 10000);
+  setInterval(loadMarketplace, 30000);
 </script>
 </body>
 </html>

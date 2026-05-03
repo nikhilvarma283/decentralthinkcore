@@ -24,6 +24,7 @@ const executor = require("./executor");
 const costTracker = require("../payments/costTracker");
 const tee = require("../tee/simulator");
 const auditLogger = require("../blockchain/auditLogger");
+const discovery = require("../marketplace/discovery");
 
 class Cortex {
   /**
@@ -78,10 +79,21 @@ class Cortex {
           step: step.slice(0, 80),
         });
 
+        // Query marketplace for the best agent for this step
+        const route = await discovery.routeTask(step, walletAddress);
+        const resolvedAgentId = route.agentId;
+
+        if (!route.isDefault) {
+          logger.info("Cortex: marketplace routing to specialist", {
+            invocationId, agentId: resolvedAgentId, step: step.slice(0, 60),
+          });
+        }
+
         const { result, usage } = await tee.run(teeCtx, () =>
           executor.execute(step, {
             context: aggregatedResult,
-            agentId,
+            agentId: resolvedAgentId,
+            endpointUrl: route.endpointUrl,
           })
         );
 
@@ -98,7 +110,7 @@ class Cortex {
           cortexSessionId,
           data: { step, resultLength: result.length, usage },
           teeAttestation,
-          payload: { stepIndex: i, agentId, tokens: usage },
+          payload: { stepIndex: i, agentId: resolvedAgentId, isDefault: route.isDefault, tokens: usage },
         });
       }
 
