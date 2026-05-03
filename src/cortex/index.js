@@ -8,8 +8,9 @@
  *   - Provisions task-scoped sub-keys to agents inside their TEEs
  *   - Enforces data minimization and privacy policies
  *   - Manages an ephemeral wallet with user-defined spending limit
+ *   - Pays external agents via x402 (HTTP 402) from the ephemeral wallet
  *   - Aggregates results and returns them to the user
- *   - Wipes all memory and revokes all sub-keys on termination
+ *   - Wipes all memory, zeroes wallet keys, revokes all sub-keys on termination
  *
  * Hermes (Nous Research LLM via Ollama) is the intelligence engine that
  * powers Cortex's reasoning. Cortex is the orchestration wrapper;
@@ -25,11 +26,17 @@ const costTracker = require("../payments/costTracker");
 const tee = require("../tee/simulator");
 const auditLogger = require("../blockchain/auditLogger");
 const discovery = require("../marketplace/discovery");
+const walletLib = require("../payments/wallet");
+
+// Default spending limit: 10,000 microALGO (0.01 ALGO) per session
+const DEFAULT_SPENDING_LIMIT = parseInt(
+  process.env.DEFAULT_SPENDING_LIMIT_MICROALGO || "10000"
+);
 
 class Cortex {
   /**
    * Run a task end-to-end inside an ephemeral session:
-   *   decompose → execute steps in TEE → aggregate → persist → wipe
+   *   decompose → route → execute (via TEE + x402) → aggregate → persist → wipe
    */
   async run(invocationId, task, options = {}) {
     const {
@@ -38,40 +45,45 @@ class Cortex {
       walletAddress = "anonymous",
       model,
       maxSteps = 5,
+      spendingLimitMicroAlgo = DEFAULT_SPENDING_LIMIT,
     } = options;
 
     logger.info("Cortex: session starting", { invocationId, agentId, walletAddress });
 
-    // Record a Cortex session in the DB for lifecycle tracking
+    // ── 1. Create ephemeral Cortex wallet inside TEE ───────────────────────
+    const ephemeralWallet = walletLib.createEphemeralWallet(spendingLimitMicroAlgo);
+    await walletLib.fundFromMaster(ephemeralWallet.address, spendingLimitMicroAlgo, null);
+
+    // ── 2. Record Cortex session in DB ────────────────────────────────────
     const cortexSessionId = uuidv4();
-    await this._createCortexSession(cortexSessionId, invocationId, sessionId, walletAddress);
+    await this._createCortexSession(
+      cortexSessionId, invocationId, sessionId, walletAddress,
+      ephemeralWallet.address, spendingLimitMicroAlgo
+    );
 
     await this._updateStatus(invocationId, "running");
 
-    // Log session start to blockchain audit trail
+    // ── 3. Audit session start on Algorand ────────────────────────────────
     await auditLogger.logEvent("cortex.start", {
       invocationId,
       cortexSessionId,
       data: { invocationId, agentId, walletAddress, startedAt: new Date().toISOString() },
-      payload: { agentId, walletAddress },
+      payload: { agentId, walletAddress, ephemeralWallet: ephemeralWallet.address },
     });
 
-    // Instantiate a TEE context for this session
+    // ── 4. Instantiate TEE context ────────────────────────────────────────
     const teeCtx = tee.createContext(invocationId);
     const teeAttestation = tee.attest(teeCtx).attestation;
 
     try {
-      // Decompose complex tasks into ordered steps
+      // ── 5. Decompose task ──────────────────────────────────────────────
       const steps = await decomposer.decompose(task, { maxSteps });
+      logger.info("Cortex: task decomposed", { invocationId, stepCount: steps.length });
 
-      logger.info("Cortex: task decomposed", {
-        invocationId,
-        stepCount: steps.length,
-      });
-
-      // Execute each step inside the TEE
+      // ── 6. Execute steps (route → TEE → x402 if external) ─────────────
       let aggregatedResult = "";
       let totalUsage = { input_tokens: 0, output_tokens: 0 };
+      let totalSpent = 0;
 
       for (const [i, step] of steps.entries()) {
         logger.info(`Cortex: executing step ${i + 1}/${steps.length}`, {
@@ -79,21 +91,20 @@ class Cortex {
           step: step.slice(0, 80),
         });
 
-        // Query marketplace for the best agent for this step
+        // Marketplace routing: find best subscribed specialist agent
         const route = await discovery.routeTask(step, walletAddress);
-        const resolvedAgentId = route.agentId;
-
         if (!route.isDefault) {
           logger.info("Cortex: marketplace routing to specialist", {
-            invocationId, agentId: resolvedAgentId, step: step.slice(0, 60),
+            invocationId, agentId: route.agentId,
           });
         }
 
-        const { result, usage } = await tee.run(teeCtx, () =>
+        const { result, usage, paymentReceipt } = await tee.run(teeCtx, () =>
           executor.execute(step, {
             context: aggregatedResult,
-            agentId: resolvedAgentId,
+            agentId: route.agentId,
             endpointUrl: route.endpointUrl,
+            wallet: ephemeralWallet,
           })
         );
 
@@ -103,35 +114,43 @@ class Cortex {
 
         totalUsage.input_tokens += usage.input_tokens;
         totalUsage.output_tokens += usage.output_tokens;
+        if (paymentReceipt) totalSpent += paymentReceipt.amountMicroAlgo || 0;
 
-        // Audit each agent execution
         await auditLogger.logEvent("agent.execute", {
           invocationId,
           cortexSessionId,
           data: { step, resultLength: result.length, usage },
           teeAttestation,
-          payload: { stepIndex: i, agentId: resolvedAgentId, isDefault: route.isDefault, tokens: usage },
+          payload: {
+            stepIndex: i,
+            agentId: route.agentId,
+            isDefault: route.isDefault,
+            tokens: usage,
+            paymentTxId: paymentReceipt?.txId || null,
+          },
         });
       }
 
-      // Record infrastructure cost
+      // ── 7. Update cortex_sessions.spent ───────────────────────────────
+      await this._updateSpent(cortexSessionId, ephemeralWallet.spent);
+
+      // ── 8. Record infra cost ───────────────────────────────────────────
       const cost = await costTracker.record({
         invocationId,
+        cortexSessionId,
         walletAddress,
         model: model || process.env.HERMES_MODEL || "nous-hermes2",
         usage: totalUsage,
       });
 
-      // Persist completed result
       await this._complete(invocationId, aggregatedResult, cost);
 
-      // Audit session completion
       await auditLogger.logEvent("cortex.complete", {
         invocationId,
         cortexSessionId,
-        data: { invocationId, totalTokens: totalUsage, costCredits: cost.credits },
+        data: { invocationId, totalTokens: totalUsage, costCredits: cost.credits, spent: ephemeralWallet.spent },
         teeAttestation,
-        payload: { costCredits: cost.credits, tokens: totalUsage },
+        payload: { costCredits: cost.credits, tokens: totalUsage, microAlgoSpent: ephemeralWallet.spent },
       });
 
       await this._terminateCortexSession(cortexSessionId, "completed");
@@ -139,15 +158,14 @@ class Cortex {
       logger.info("Cortex: session completed", {
         invocationId,
         costCredits: cost.credits,
+        microAlgoSpent: ephemeralWallet.spent,
         tokens: totalUsage,
       });
 
-      return { result: aggregatedResult, cost, usage: totalUsage };
+      return { result: aggregatedResult, cost, usage: totalUsage, spent: ephemeralWallet.spent };
+
     } catch (err) {
-      logger.error("Cortex: session failed", {
-        invocationId,
-        error: err.message,
-      });
+      logger.error("Cortex: session failed", { invocationId, error: err.message });
 
       await auditLogger.logEvent("cortex.fail", {
         invocationId,
@@ -156,30 +174,45 @@ class Cortex {
         payload: { error: err.message },
       });
 
+      await this._updateSpent(cortexSessionId, ephemeralWallet.spent);
       await this._terminateCortexSession(cortexSessionId, "error");
       await this._fail(invocationId, err.message);
       throw err;
+
     } finally {
-      // CRITICAL: destroy TEE context — wipes all in-memory state for this session
+      // ── CRITICAL: destroy TEE context and zero wallet key ──────────────
       tee.destroyContext(teeCtx);
-      logger.info("Cortex: TEE context destroyed, session memory wiped", { invocationId });
+      walletLib.destroyWallet(ephemeralWallet);
+      logger.info("Cortex: TEE destroyed + wallet key zeroed — session fully wiped", { invocationId });
     }
   }
 
-  async _createCortexSession(cortexSessionId, invocationId, authSessionId, walletAddress) {
+  async _createCortexSession(cortexSessionId, invocationId, authSessionId, walletAddress, ephemeralWalletAddr, spendingLimit) {
     try {
       await db.query(
-        `INSERT INTO cortex_sessions (id, auth_session_id, wallet_address)
-         VALUES ($1, $2, $3)`,
-        [cortexSessionId, authSessionId, walletAddress]
+        `INSERT INTO cortex_sessions
+           (id, auth_session_id, wallet_address, tee_context_id, spending_limit)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [cortexSessionId, authSessionId, walletAddress, ephemeralWalletAddr,
+         spendingLimit / 1_000_000]  // store as ALGO, not microALGO
       );
-      // Back-link invocation to this cortex session
       await db.query(
         `UPDATE invocations SET cortex_session_id = $1 WHERE id = $2`,
         [cortexSessionId, invocationId]
       );
     } catch (err) {
       logger.warn("Cortex: failed to persist session record", { error: err.message });
+    }
+  }
+
+  async _updateSpent(cortexSessionId, spentMicroAlgo) {
+    try {
+      await db.query(
+        `UPDATE cortex_sessions SET spent = $1 WHERE id = $2`,
+        [spentMicroAlgo / 1_000_000, cortexSessionId]
+      );
+    } catch (err) {
+      logger.warn("Cortex: failed to update spent amount", { error: err.message });
     }
   }
 

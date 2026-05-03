@@ -18,16 +18,18 @@ function computeCost(_model, usage) {
   };
 }
 
-async function record({ invocationId, walletAddress, model, usage }) {
+async function record({ invocationId, cortexSessionId = null, walletAddress, model, usage }) {
   const cost = computeCost(model, usage);
 
   try {
     await db.query(
       `INSERT INTO cost_ledger
-         (invocation_id, wallet_address, model, input_tokens, output_tokens, cost_usd, cost_credits)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+         (invocation_id, cortex_session_id, wallet_address, model,
+          input_tokens, output_tokens, cost_usd, cost_credits)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         invocationId,
+        cortexSessionId,
         walletAddress,
         model || process.env.HERMES_MODEL || "nous-hermes2",
         usage.input_tokens || 0,
