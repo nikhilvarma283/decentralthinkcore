@@ -47,7 +47,7 @@ router.get("/", async (_req, res) => {
     }
   }
 
-  const allOk = Object.values(checks).every((v) => v === "ok");
+  const allOk = Object.values(checks).every((v) => v === "ok" || v === "not-configured");
   res.status(allOk ? 200 : 503).json({
     status: allOk ? "ok" : "degraded",
     version: process.env.npm_package_version || "0.1.0",

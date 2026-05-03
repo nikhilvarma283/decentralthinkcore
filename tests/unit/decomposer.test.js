@@ -1,27 +1,25 @@
-// Shared mock so the decomposer module and test reference the same fn
-const mockCreate = jest.fn();
+// Mock the Ollama LLM client so tests don't need a running Ollama instance
+const mockChat = jest.fn();
+jest.mock("../../src/lib/llm", () => ({ chat: mockChat }));
 
-jest.mock("@anthropic-ai/sdk", () =>
-  jest.fn().mockImplementation(() => ({ messages: { create: mockCreate } }))
-);
-
-const { decompose } = require("../../src/orchestrator/decomposer");
+const { decompose } = require("../../src/cortex/decomposer");
 
 describe("decomposer", () => {
   beforeEach(() => {
-    mockCreate.mockReset();
+    mockChat.mockReset();
   });
 
-  it("returns single step for short tasks without calling Claude", async () => {
+  it("returns single step for short tasks without calling Hermes", async () => {
     const task = "What is 2+2?";
     const steps = await decompose(task);
     expect(steps).toEqual([task]);
-    expect(mockCreate).not.toHaveBeenCalled();
+    expect(mockChat).not.toHaveBeenCalled();
   });
 
-  it("returns Claude-decomposed steps for long tasks", async () => {
-    mockCreate.mockResolvedValue({
-      content: [{ text: '["Step 1","Step 2","Step 3"]' }],
+  it("returns Hermes-decomposed steps for long tasks", async () => {
+    mockChat.mockResolvedValue({
+      content: '["Step 1","Step 2","Step 3"]',
+      usage: { input_tokens: 50, output_tokens: 20 },
     });
 
     const longTask = "A".repeat(130);
@@ -30,9 +28,10 @@ describe("decomposer", () => {
     expect(steps[0]).toBe("Step 1");
   });
 
-  it("falls back to single step when Claude returns invalid JSON", async () => {
-    mockCreate.mockResolvedValue({
-      content: [{ text: "not valid json at all" }],
+  it("falls back to single step when Hermes returns invalid JSON", async () => {
+    mockChat.mockResolvedValue({
+      content: "not valid json at all",
+      usage: { input_tokens: 50, output_tokens: 10 },
     });
 
     const longTask = "A".repeat(130);
@@ -41,8 +40,9 @@ describe("decomposer", () => {
   });
 
   it("respects maxSteps cap", async () => {
-    mockCreate.mockResolvedValue({
-      content: [{ text: '["1","2","3","4","5","6","7"]' }],
+    mockChat.mockResolvedValue({
+      content: '["1","2","3","4","5","6","7"]',
+      usage: { input_tokens: 50, output_tokens: 20 },
     });
 
     const longTask = "A".repeat(130);

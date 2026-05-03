@@ -1,5 +1,3 @@
-process.env.VAULT_ENCRYPTION_KEY = "b".repeat(64);
-
 jest.mock("../../src/lib/db", () => ({ query: jest.fn() }));
 jest.mock("../../src/auth/session", () => ({
   validate: jest.fn(),
@@ -11,9 +9,18 @@ const request = require("supertest");
 const app = require("../../src/app");
 const db = require("../../src/lib/db");
 const sessionMod = require("../../src/auth/session");
+const crypto = require("crypto");
 
 const WALLET = "0xdeadbeef00000000000000000000000000000001";
 const TOKEN = "validtoken123";
+
+// Generate valid base64 ciphertext and iv for tests
+const iv = crypto.randomBytes(12);
+const key = crypto.randomBytes(32);
+const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+const ct = Buffer.concat([cipher.update("secret"), cipher.final(), cipher.getAuthTag()]);
+const VALID_CIPHERTEXT = ct.toString("base64");
+const VALID_IV = iv.toString("base64");
 
 beforeEach(() => {
   sessionMod.validate.mockResolvedValue({
@@ -27,14 +34,15 @@ beforeEach(() => {
 const authHeader = { Authorization: `Bearer ${TOKEN}` };
 
 describe("PUT /api/v1/vault/:key", () => {
-  it("stores a secret and returns 200", async () => {
+  it("stores a pre-encrypted blob and returns 200", async () => {
     const res = await request(app)
       .put("/api/v1/vault/my-api-key")
       .set(authHeader)
-      .send({ value: "secret123" });
+      .send({ ciphertext: VALID_CIPHERTEXT, iv: VALID_IV });
 
     expect(res.status).toBe(200);
     expect(res.body.key).toBe("my-api-key");
+    expect(res.body.stored).toBe(true);
     expect(db.query).toHaveBeenCalled();
   });
 
@@ -42,7 +50,7 @@ describe("PUT /api/v1/vault/:key", () => {
     sessionMod.validate.mockResolvedValue(null);
     const res = await request(app)
       .put("/api/v1/vault/my-key")
-      .send({ value: "x" });
+      .send({ ciphertext: VALID_CIPHERTEXT, iv: VALID_IV });
     expect(res.status).toBe(401);
   });
 
@@ -50,26 +58,32 @@ describe("PUT /api/v1/vault/:key", () => {
     const res = await request(app)
       .put("/api/v1/vault/bad key!")
       .set(authHeader)
-      .send({ value: "x" });
+      .send({ ciphertext: VALID_CIPHERTEXT, iv: VALID_IV });
     expect(res.status).toBe(400);
   });
 
-  it("rejects empty value", async () => {
+  it("rejects missing ciphertext", async () => {
     const res = await request(app)
       .put("/api/v1/vault/k")
       .set(authHeader)
-      .send({ value: "" });
+      .send({ iv: VALID_IV });
     expect(res.status).toBe(400);
   });
+
+  it("rejects missing iv", async () => {
+    const res = await request(app)
+      .put("/api/v1/vault/k")
+      .set(authHeader)
+      .send({ ciphertext: VALID_CIPHERTEXT });
+    expect(res.status).toBe(400);
+  });
+
 });
 
 describe("GET /api/v1/vault/:key", () => {
-  it("returns decrypted value for existing key", async () => {
-    const { encrypt } = require("../../src/vault/crypto");
-    const { ciphertext, iv } = encrypt("my-secret");
-
+  it("returns ciphertext blob for client decryption", async () => {
     db.query.mockResolvedValue({
-      rows: [{ encrypted_value: ciphertext, iv }],
+      rows: [{ encrypted_value: ct, iv }],
       rowCount: 1,
     });
 
@@ -78,7 +92,11 @@ describe("GET /api/v1/vault/:key", () => {
       .set(authHeader);
 
     expect(res.status).toBe(200);
-    expect(res.body.value).toBe("my-secret");
+    expect(res.body.key).toBe("my-api-key");
+    expect(res.body.ciphertext).toBe(VALID_CIPHERTEXT);
+    expect(res.body.iv).toBe(VALID_IV);
+    // Server must never return decrypted value
+    expect(res.body.value).toBeUndefined();
   });
 
   it("returns 404 for missing key", async () => {
@@ -97,6 +115,7 @@ describe("DELETE /api/v1/vault/:key", () => {
       .delete("/api/v1/vault/my-key")
       .set(authHeader);
     expect(res.status).toBe(200);
+    expect(res.body.deleted).toBe(true);
   });
 
   it("returns 404 when key does not exist", async () => {
@@ -109,7 +128,7 @@ describe("DELETE /api/v1/vault/:key", () => {
 });
 
 describe("GET /api/v1/vault", () => {
-  it("lists keys without values", async () => {
+  it("lists keys without values or ciphertext", async () => {
     db.query.mockResolvedValue({
       rows: [
         { key_name: "key-a", created_at: new Date(), updated_at: new Date() },
@@ -122,7 +141,7 @@ describe("GET /api/v1/vault", () => {
     expect(res.status).toBe(200);
     expect(res.body.entries).toHaveLength(2);
     expect(res.body.entries[0].key_name).toBe("key-a");
-    // Values must NOT appear in list response
     expect(res.body.entries[0].value).toBeUndefined();
+    expect(res.body.entries[0].ciphertext).toBeUndefined();
   });
 });

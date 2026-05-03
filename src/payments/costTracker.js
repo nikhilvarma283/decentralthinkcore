@@ -5,15 +5,12 @@ const logger = require("../lib/logger");
 // We meter token usage so tenants are billed fairly for infrastructure
 // (GPU/CPU time). Adjust INFRA_COST_PER_1K_TOKENS to match your hosting cost.
 // Typical estimate: ~$0.0003 / 1K tokens on a budget GPU instance.
-const INFRA_COST_PER_1K_TOKENS = parseFloat(
-  process.env.INFRA_COST_PER_1K_TOKENS || "0.0003"
-);
-const CREDITS_PER_USD = parseFloat(process.env.CREDITS_PER_USD || "100");
-
 function computeCost(_model, usage) {
+  const infraCostPer1k = parseFloat(process.env.INFRA_COST_PER_1K_TOKENS || "0.0003");
+  const creditsPerUsd = parseFloat(process.env.CREDITS_PER_USD || "100");
   const totalTokens = (usage.input_tokens || 0) + (usage.output_tokens || 0);
-  const usd = (totalTokens / 1000) * INFRA_COST_PER_1K_TOKENS;
-  const credits = usd * CREDITS_PER_USD;
+  const usd = (totalTokens / 1000) * infraCostPer1k;
+  const credits = usd * creditsPerUsd;
   return {
     usd: parseFloat(usd.toFixed(8)),
     credits: parseFloat(credits.toFixed(6)),
