@@ -192,3 +192,62 @@ CREATE TABLE builder_deployments (
 
 CREATE INDEX idx_deployments_owner  ON builder_deployments(owner_address);
 CREATE INDEX idx_deployments_status ON builder_deployments(status);
+
+-- ─── Deployment membership ────────────────────────────────────────────────────
+-- Tracks which wallet addresses are members of a builder deployment.
+-- The builder's OPA policy governs who may join and what they can do.
+CREATE TABLE deployment_members (
+  id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  deployment_id     UUID NOT NULL REFERENCES builder_deployments(id) ON DELETE CASCADE,
+  wallet_address    TEXT NOT NULL,
+  role              TEXT NOT NULL DEFAULT 'member'
+                      CHECK (role IN ('owner','admin','member')),
+  public_key        TEXT,              -- wallet-derived public key for message encryption
+  joined_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (deployment_id, wallet_address)
+);
+
+CREATE INDEX idx_members_deployment ON deployment_members(deployment_id);
+CREATE INDEX idx_members_wallet     ON deployment_members(wallet_address);
+
+-- ─── Secure messages ─────────────────────────────────────────────────────────
+-- Server is a BLIND transport layer. encrypted_content is AES-256-GCM
+-- ciphertext encrypted CLIENT-SIDE to the recipient's public key.
+-- The server never holds decryption keys and cannot read message content.
+CREATE TABLE secure_messages (
+  id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  deployment_id     UUID NOT NULL REFERENCES builder_deployments(id) ON DELETE CASCADE,
+  sender_address    TEXT NOT NULL,
+  recipient_address TEXT NOT NULL,
+  encrypted_content BYTEA NOT NULL,    -- client-encrypted ciphertext only
+  iv                BYTEA NOT NULL,    -- GCM IV (96-bit)
+  content_hash      TEXT NOT NULL,     -- SHA-256 of plaintext — for audit anchoring
+  blockchain_txid   TEXT,             -- Algorand audit anchor
+  sent_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  read_at           TIMESTAMPTZ
+);
+
+CREATE INDEX idx_messages_deployment ON secure_messages(deployment_id);
+CREATE INDEX idx_messages_recipient  ON secure_messages(recipient_address);
+CREATE INDEX idx_messages_sender     ON secure_messages(sender_address);
+
+-- ─── Context shares ───────────────────────────────────────────────────────────
+-- Compound context sharing: abstract scores and embeddings ONLY — never raw data.
+-- Patent invariant: users share derived insight, not source material.
+-- Each share is a named JSON document of numeric scores / vector snapshots.
+CREATE TABLE context_shares (
+  id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  deployment_id     UUID NOT NULL REFERENCES builder_deployments(id) ON DELETE CASCADE,
+  sharer_address    TEXT NOT NULL,
+  recipient_address TEXT,              -- NULL = broadcast to all deployment members
+  context_type      TEXT NOT NULL,     -- 'scores' | 'embedding' | 'summary'
+  context_data      JSONB NOT NULL,    -- abstract scores/embeddings — NO raw data
+  data_hash         TEXT NOT NULL,     -- SHA-256 for audit trail
+  blockchain_txid   TEXT,
+  shared_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at        TIMESTAMPTZ        -- optional TTL
+);
+
+CREATE INDEX idx_context_deployment ON context_shares(deployment_id);
+CREATE INDEX idx_context_recipient  ON context_shares(recipient_address);
+CREATE INDEX idx_context_sharer     ON context_shares(sharer_address);

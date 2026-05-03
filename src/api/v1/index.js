@@ -8,6 +8,7 @@ const marketplaceRouter = require("./marketplace");
 const paymentsRouter = require("./payments");
 const agentRouter = require("./agent");
 const builderRouter = require("./builder");
+const messagingRouter = require("./messaging");
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use("/marketplace", marketplaceRouter);
 router.use("/payments", paymentsRouter);
 router.use("/agent", agentRouter);
 router.use("/builder", builderRouter);
+router.use("/messaging", messagingRouter);
 
 module.exports = router;
