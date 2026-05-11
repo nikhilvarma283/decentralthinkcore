@@ -22,7 +22,6 @@ services:
         condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    restart: unless-stopped
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.dtcore.rule=Host(`core.decentralthink.com`)"
