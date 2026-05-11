@@ -1,12 +1,7 @@
 package decentralthink.agent
 
-import future.keywords.if
-import future.keywords.in
-import future.keywords.contains
-
 default allow = false
 
-# Allow if session is valid and task is not blocked
 allow if {
   valid_session
   not blocked_task
@@ -23,7 +18,6 @@ blocked_task if {
   contains(lower(input.task), lower(pattern))
 }
 
-# Deny reasons for observability
 deny_reasons contains reason if {
   not valid_session
   reason := "invalid or expired session"
