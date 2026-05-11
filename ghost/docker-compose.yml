@@ -7,7 +7,7 @@ services:
     environment:
       NODE_ENV: production
       url: https://decentralthink.com
-      database__client: mysql8
+      database__client: mysql
       database__connection__host: ghost-db
       database__connection__user: ghost
       database__connection__password: ${GHOST_DB_PASSWORD}
