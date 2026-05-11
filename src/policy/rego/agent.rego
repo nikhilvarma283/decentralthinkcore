@@ -2,6 +2,7 @@ package decentralthink.agent
 
 import future.keywords.if
 import future.keywords.in
+import future.keywords.contains
 
 default allow = false
 
@@ -23,12 +24,12 @@ blocked_task if {
 }
 
 # Deny reasons for observability
-deny_reasons[reason] {
+deny_reasons contains reason if {
   not valid_session
   reason := "invalid or expired session"
 }
 
-deny_reasons[reason] {
+deny_reasons contains reason if {
   blocked_task
   reason := "task contains blocked pattern"
 }
