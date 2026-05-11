@@ -11,8 +11,9 @@ services:
       - DATABASE_URL=postgres://dtcore:${POSTGRES_PASSWORD}@postgres:5432/decentralthink
       - OPA_URL=http://opa:8181
       - ALGORAND_NETWORK=testnet
-      - OLLAMA_URL=http://host.docker.internal:11434
-      - HERMES_MODEL=nous-hermes2
+      # Ollama runs as a container in this compose — NOT on the host anymore.
+      - OLLAMA_URL=http://ollama:11434
+      - HERMES_MODEL=${HERMES_MODEL:-nous-hermes2}
     env_file:
       - .env.prod
     depends_on:
@@ -20,14 +21,51 @@ services:
         condition: service_healthy
       opa:
         condition: service_started
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      ollama-init:
+        condition: service_completed_successfully
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.dtcore.rule=Host(`core.decentralthink.com`)"
       - "traefik.http.routers.dtcore.entrypoints=websecure"
       - "traefik.http.routers.dtcore.tls.certresolver=letsencrypt"
-      - "traefik.http.services.dtcore.loadbalancer.server.url=http://127.0.0.1:3001"
+      # Use the container's internal port — Traefik is on the dtcore network.
+      - "traefik.http.services.dtcore.loadbalancer.server.port=3000"
+    networks:
+      - dtcore
+
+  # ── Ollama — self-hosted Hermes inference ─────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    # Remove or adjust the port mapping to avoid exposing Ollama publicly.
+    # Only the api container needs to reach it (via the dtcore network).
+    expose:
+      - "11434"
+    networks:
+      - dtcore
+    # Uncomment to enable GPU (requires nvidia-container-toolkit on the host):
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  # ── One-shot model pull — runs before api starts ──────────────────────────
+  ollama-init:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_data:/root/.ollama
+      - ./scripts/pull-model.sh:/pull-model.sh:ro
+    entrypoint: ["/bin/sh", "/pull-model.sh"]
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      - HERMES_MODEL=${HERMES_MODEL:-nous-hermes2}
+    depends_on:
+      - ollama
     networks:
       - dtcore
 
@@ -52,7 +90,7 @@ services:
   opa:
     image: openpolicyagent/opa:latest
     restart: unless-stopped
-    command: run --server --log-level=info /policies
+    command: run --server --addr 0.0.0.0:8181 --log-level=info /policies
     volumes:
       - ./src/policy/rego:/policies
     networks:
@@ -60,6 +98,7 @@ services:
 
 volumes:
   postgres_data:
+  ollama_data:    # persists Hermes model weights — avoids re-downloading on every deploy
 
 networks:
   dtcore:

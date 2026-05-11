@@ -75,23 +75,64 @@ async function chat(messages, options = {}) {
 async function healthCheck() {
   try {
     const res = await fetch(`${OLLAMA_URL}/api/tags`, {
-      signal: AbortSignal.timeout(3000),
+      signal: AbortSignal.timeout(5000),
     });
-    if (!res.ok) return { ok: false, reason: `HTTP ${res.status}` };
+    if (!res.ok) return { ok: false, reason: `Ollama HTTP ${res.status}` };
 
     const { models = [] } = await res.json();
-    const modelName = DEFAULT_MODEL.split(":")[0]; // strip tag
-    const loaded = models.some((m) => m.name.startsWith(modelName));
+    const modelName = DEFAULT_MODEL.split(":")[0]; // strip tag suffix e.g. ":latest"
+    const loaded = models.some(
+      (m) => m.name === DEFAULT_MODEL || m.name.startsWith(`${modelName}:`) || m.name === modelName
+    );
 
     return {
       ok: loaded,
       model: DEFAULT_MODEL,
-      reason: loaded ? null : `Model ${DEFAULT_MODEL} not yet pulled`,
+      reason: loaded ? null : `Model "${DEFAULT_MODEL}" not found — run: ollama pull ${DEFAULT_MODEL}`,
       availableModels: models.map((m) => m.name),
     };
   } catch (err) {
-    return { ok: false, reason: err.message };
+    return { ok: false, reason: `Ollama unreachable at ${OLLAMA_URL}: ${err.message}` };
   }
 }
 
-module.exports = { chat, healthCheck };
+/**
+ * Block until Ollama is up and the model is loaded, or until timeoutMs elapses.
+ * Call this from app startup to surface a clear error instead of silent 503s.
+ *
+ * @param {number} timeoutMs  — total time to wait (default: 5 minutes)
+ * @param {number} intervalMs — retry interval (default: 5 seconds)
+ */
+async function waitForReady(timeoutMs = 300_000, intervalMs = 5_000) {
+  const deadline = Date.now() + timeoutMs;
+  let attempt = 0;
+
+  while (Date.now() < deadline) {
+    attempt++;
+    const { ok, reason, availableModels } = await healthCheck();
+
+    if (ok) {
+      logger.info(`LLM: Hermes ready (${DEFAULT_MODEL}) after ${attempt} attempt(s)`);
+      return;
+    }
+
+    const remaining = Math.round((deadline - Date.now()) / 1000);
+    logger.warn(`LLM: Hermes not ready (attempt ${attempt}, ${remaining}s remaining)`, {
+      reason,
+      availableModels,
+      ollamaUrl: OLLAMA_URL,
+      model: DEFAULT_MODEL,
+    });
+
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+
+  // Timed out — log a clear actionable error but don't crash the process.
+  // Requests will fail at the handler level with a proper 503 until Ollama recovers.
+  logger.error(
+    `LLM: Hermes did not become ready within ${timeoutMs / 1000}s. ` +
+    `Check that Ollama is running at ${OLLAMA_URL} and that "${DEFAULT_MODEL}" is pulled.`
+  );
+}
+
+module.exports = { chat, healthCheck, waitForReady };
