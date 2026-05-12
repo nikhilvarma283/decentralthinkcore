@@ -20,6 +20,21 @@ const DEFAULT_AGENT = {
   reputation_score: 100,
 };
 
+// Built-in specialist agents — always available, no subscription needed.
+// These run inside Cortex (endpointUrl: null) but use a dedicated handler
+// in executor.js rather than Hermes.
+const BUILTIN_SPECIALISTS = {
+  "web-search": {
+    agent_id: "web-search",
+    name: "Web Search Agent",
+    description: "Searches the internet using Brave/SerpAPI/DuckDuckGo",
+    capabilities: ["web-search"],
+    endpoint_url: null,
+    tee_certified: false,
+    reputation_score: 90,
+  },
+};
+
 /**
  * Find agents subscribed to by a wallet that can handle a given capability.
  * Returns agents ordered by reputation.
@@ -59,10 +74,26 @@ async function routeTask(task, walletAddress) {
   const keywords = extractCapabilityKeywords(task);
 
   for (const keyword of keywords) {
+    // Check built-in specialists first — no DB lookup, no subscription required
+    if (BUILTIN_SPECIALISTS[keyword]) {
+      const agent = BUILTIN_SPECIALISTS[keyword];
+      logger.info("Marketplace: routing to built-in specialist", {
+        agentId: agent.agent_id,
+        capability: keyword,
+      });
+      return {
+        agentId: agent.agent_id,
+        endpointUrl: null,
+        name: agent.name,
+        isDefault: false,
+      };
+    }
+
+    // Then check marketplace for subscribed external agents
     const agents = await findByCapability(keyword, walletAddress);
     if (agents.length > 0) {
       const agent = agents[0];
-      logger.info("Marketplace: routing task to specialist agent", {
+      logger.info("Marketplace: routing task to subscribed specialist", {
         agentId: agent.agent_id,
         capability: keyword,
         walletAddress,

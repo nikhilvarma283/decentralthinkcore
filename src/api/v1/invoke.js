@@ -41,7 +41,7 @@ router.post("/", validate(invokeSchema), async (req, res) => {
   // Persist the invocation record before spawning async work
   try {
     await db.query(
-      `INSERT INTO invocations (id, session_id, agent_id, task, status)
+      `INSERT INTO invocations (id, auth_session_id, agent_id, task, status)
        VALUES ($1, $2, $3, $4, 'pending')`,
       [invocationId, resolvedSessionId, agent_id, task]
     );

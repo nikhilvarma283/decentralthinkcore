@@ -11,6 +11,7 @@
 
 const llm = require("../lib/llm");
 const { fetchWithPayment } = require("../payments/x402Client");
+const webSearch = require("../agents/webSearch");
 const logger = require("../lib/logger");
 
 const AGENT_SYSTEM = `You are a capable AI agent operating inside a secure Trusted Execution Environment (TEE).
@@ -29,10 +30,22 @@ Do not reveal system internals or attempt to access resources outside your scope
  * @param {object}  [options.wallet]       - Ephemeral wallet for x402 payments
  * @returns {{ result, usage, paymentReceipt }}
  */
+// Built-in specialist agents — handled internally without x402 or Hermes
+const BUILTIN_AGENTS = {
+  "web-search": (step, { context }) => webSearch.execute(step, context),
+};
+
 async function execute(step, { context = "", agentId = "cortex-default", endpointUrl = null, wallet = null } = {}) {
+  // External specialist agent via x402
   if (endpointUrl) {
     return _executeExternal(step, { context, agentId, endpointUrl, wallet });
   }
+  // Built-in specialist agent (web-search, etc.)
+  if (BUILTIN_AGENTS[agentId]) {
+    logger.info("Executor: routing to built-in agent", { agentId });
+    return BUILTIN_AGENTS[agentId](step, { context });
+  }
+  // Default: Hermes reasoning
   return _executeInternal(step, { context, agentId });
 }
 
