@@ -111,11 +111,28 @@ async function _buildPaymentPayload(wallet, accepted, amountMicroAlgo) {
     return _simulatePayment(accepted, amountMicroAlgo);
   }
 
-  const signed = await signPayment(wallet, {
-    to: accepted.payTo,
-    amountMicroAlgo,
-    suggestedParams,
-  });
+  // Guard: payTo must be a valid Algorand address.
+  // Falls back to simulate if ALGORAND_PLATFORM_ADDRESS is not configured.
+  if (!accepted.payTo || accepted.payTo.length < 58) {
+    logger.warn("x402Client: payTo address not configured — falling back to simulate", {
+      payTo: accepted.payTo || "(empty)",
+    });
+    return _simulatePayment(accepted, amountMicroAlgo);
+  }
+
+  let signed;
+  try {
+    signed = await signPayment(wallet, {
+      to: accepted.payTo,
+      amountMicroAlgo,
+      suggestedParams,
+    });
+  } catch (err) {
+    logger.warn("x402Client: signPayment failed — falling back to simulate", {
+      error: err.message,
+    });
+    return _simulatePayment(accepted, amountMicroAlgo);
+  }
 
   if (!signed) {
     throw new Error(
