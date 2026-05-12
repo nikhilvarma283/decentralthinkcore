@@ -30,6 +30,17 @@ async function verify(paymentProof, requirement) {
     if (scheme !== "exact") {
       return { valid: false, reason: `Unsupported scheme: ${scheme}` };
     }
+
+    // Simulated payment — no real on-chain transaction, accept in dev/demo mode
+    if (paymentProof.simulated || payload?.payer === "SIMULATED_WALLET") {
+      const txId = payload?.txId || `SIM${Date.now().toString(36).toUpperCase()}`;
+      logger.info("x402Verifier: simulated payment accepted", {
+        txId,
+        amountMicroAlgo: payload?.amountMicroAlgo,
+      });
+      return { valid: true, txId, mode: "simulate" };
+    }
+
     if (!payload?.signedTxn) {
       return { valid: false, reason: "Missing signedTxn in payload" };
     }

@@ -158,10 +158,12 @@ function _simulatePayment(accepted, amountMicroAlgo) {
     x402Version: X402_VERSION,
     scheme: "exact",
     network: accepted.network || "testnet",
+    simulated: true,   // tells the verifier to skip algosdk decoding
     payload: {
-      signedTxn: Buffer.from(`simulated|${amountMicroAlgo}|${fakeTxId}`).toString("base64"),
+      signedTxn: null, // no real transaction in simulate mode
       txId: fakeTxId,
       payer: "SIMULATED_WALLET",
+      amountMicroAlgo,
     },
   };
 }
