@@ -21,17 +21,36 @@ const DEFAULT_AGENT = {
 };
 
 // Built-in specialist agents — always available, no subscription needed.
-// These run inside Cortex (endpointUrl: null) but use a dedicated handler
-// in executor.js rather than Hermes.
+// endpoint_url: null  → handled directly inside executor.js (BUILTIN_AGENTS map)
+// endpoint_url: set   → called via x402 HTTP (same server, exercises payment flow)
+const _DEMO_BASE = process.env.API_BASE_URL || 'http://localhost:3000';
 const BUILTIN_SPECIALISTS = {
   "web-search": {
     agent_id: "web-search",
     name: "Web Search Agent",
-    description: "Searches the internet using Brave/SerpAPI/DuckDuckGo",
+    description: "Searches the internet using Tavily/SerpAPI/DuckDuckGo",
     capabilities: ["web-search"],
-    endpoint_url: null,
+    endpoint_url: null,      // handled in executor BUILTIN_AGENTS
     tee_certified: false,
     reputation_score: 90,
+  },
+  "flight-search": {
+    agent_id: "demo-flight-search",
+    name: "Flight Search Agent",
+    description: "x402-gated demo flight search — Algorand testnet",
+    capabilities: ["flight-search", "travel"],
+    endpoint_url: `${_DEMO_BASE}/api/v1/demo/flight`,
+    tee_certified: false,
+    reputation_score: 85,
+  },
+  "hotel-search": {
+    agent_id: "demo-hotel-search",
+    name: "Hotel Search Agent",
+    description: "x402-gated demo hotel search — Algorand testnet",
+    capabilities: ["hotel-search", "travel"],
+    endpoint_url: `${_DEMO_BASE}/api/v1/demo/hotel`,
+    tee_certified: false,
+    reputation_score: 85,
   },
 };
 
@@ -83,7 +102,7 @@ async function routeTask(task, walletAddress) {
       });
       return {
         agentId: agent.agent_id,
-        endpointUrl: null,
+        endpointUrl: agent.endpoint_url || null,  // null → executor built-in; set → x402 HTTP call
         name: agent.name,
         isDefault: false,
       };
@@ -122,6 +141,8 @@ async function routeTask(task, walletAddress) {
 function extractCapabilityKeywords(task) {
   const taskLower = task.toLowerCase();
   const CAPABILITY_MAP = {
+    "flight-search": ["flight", "fly", "airline", "plane", "airport", "depart", "ticket"],
+    "hotel-search":  ["hotel", "accommodation", "room", "stay", "lodging", "hostel", "resort", "check-in"],
     "web-search":    ["search", "find", "lookup", "google", "web", "internet"],
     "code":          ["code", "program", "script", "function", "debug", "implement"],
     "data-analysis": ["analyze", "data", "csv", "chart", "statistics", "trend"],

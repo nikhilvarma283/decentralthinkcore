@@ -9,6 +9,7 @@ const paymentsRouter = require("./payments");
 const agentRouter = require("./agent");
 const builderRouter = require("./builder");
 const messagingRouter = require("./messaging");
+const demoRouter = require("./demo");
 
 const router = Router();
 
@@ -22,5 +23,6 @@ router.use("/payments", paymentsRouter);
 router.use("/agent", agentRouter);
 router.use("/builder", builderRouter);
 router.use("/messaging", messagingRouter);
+router.use("/demo", demoRouter);
 
 module.exports = router;

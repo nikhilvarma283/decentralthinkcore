@@ -73,11 +73,8 @@ async function _executeExternal(step, { context, agentId, endpointUrl, wallet })
     endpointUrl: endpointUrl.replace(/https?:\/\/[^/]+/, "[host]"),
   });
 
-  const body = JSON.stringify({
-    step,
-    context,
-    agentId,
-  });
+  // All demo/external agents accept { step, context, agentId } at /execute
+  const body = JSON.stringify({ step, context, agentId });
 
   const { body: responseBody, paymentReceipt } = await fetchWithPayment(
     `${endpointUrl}/execute`,
@@ -85,7 +82,12 @@ async function _executeExternal(step, { context, agentId, endpointUrl, wallet })
     wallet
   );
 
-  if (!responseBody?.result) {
+  // Agents may return { result } directly or wrap it — normalise both shapes
+  const result = responseBody?.result
+    ?? responseBody?.data?.result
+    ?? responseBody?.summary;
+
+  if (!result) {
     throw new Error(`External agent ${agentId} returned no result`);
   }
 
@@ -93,11 +95,11 @@ async function _executeExternal(step, { context, agentId, endpointUrl, wallet })
 
   logger.info("Executor: external agent response received", {
     agentId,
-    resultLength: responseBody.result.length,
+    resultLength: result.length,
     paymentTxId: paymentReceipt?.txId,
   });
 
-  return { result: responseBody.result, usage, paymentReceipt };
+  return { result, usage, paymentReceipt };
 }
 
 module.exports = { execute };
