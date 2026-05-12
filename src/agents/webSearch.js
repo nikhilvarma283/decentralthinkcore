@@ -5,17 +5,15 @@
  * (find, search, lookup, web, internet, etc.) — see marketplace/discovery.js.
  *
  * Backends (tried in order):
- *   1. Brave Search API   — set BRAVE_SEARCH_API_KEY  (best results, free tier: 2k/month)
- *   2. SerpAPI            — set SERPAPI_KEY            (100 free searches/month)
- *   3. DuckDuckGo Lite    — no key needed, limited to instant answers + related topics
- *
- * The raw search results are returned to Cortex's executor, which then passes
- * them as context to the next Hermes step for summarisation/formatting.
+ *   1. Tavily   — set TAVILY_API_KEY  (1000 free searches/month, AI-optimised)
+ *                 Free key at: https://tavily.com
+ *   2. SerpAPI  — set SERPAPI_KEY     (100 free searches/month)
+ *   3. DuckDuckGo instant answers — no key, limited results, always available
  */
 
 const logger = require("../lib/logger");
 
-const BRAVE_KEY  = process.env.BRAVE_SEARCH_API_KEY;
+const TAVILY_KEY  = process.env.TAVILY_API_KEY;
 const SERPAPI_KEY = process.env.SERPAPI_KEY;
 const MAX_RESULTS = parseInt(process.env.WEB_SEARCH_MAX_RESULTS || "8");
 
@@ -24,37 +22,40 @@ const MAX_RESULTS = parseInt(process.env.WEB_SEARCH_MAX_RESULTS || "8");
  * Returns { results: [{title, url, snippet}], source }
  */
 async function search(query) {
-  if (BRAVE_KEY)   return _brave(query);
-  if (SERPAPI_KEY) return _serpapi(query);
+  if (TAVILY_KEY)   return _tavily(query);
+  if (SERPAPI_KEY)  return _serpapi(query);
   return _duckduckgo(query);
 }
 
-// ── Brave Search API ──────────────────────────────────────────────────────────
+// -- Tavily (recommended — free tier, built for AI agents) --------------------
 
-async function _brave(query) {
-  const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${MAX_RESULTS}`;
-  const res = await fetch(url, {
-    headers: {
-      "Accept": "application/json",
-      "Accept-Encoding": "gzip",
-      "X-Subscription-Token": BRAVE_KEY,
-    },
-    signal: AbortSignal.timeout(10_000),
+async function _tavily(query) {
+  const res = await fetch("https://api.tavily.com/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      api_key: TAVILY_KEY,
+      query,
+      search_depth: "basic",
+      max_results: MAX_RESULTS,
+      include_answer: false,
+    }),
+    signal: AbortSignal.timeout(15_000),
   });
 
-  if (!res.ok) throw new Error(`Brave Search error ${res.status}`);
+  if (!res.ok) throw new Error(`Tavily error ${res.status}`);
   const data = await res.json();
 
-  const results = (data.web?.results || []).map((r) => ({
+  const results = (data.results || []).map((r) => ({
     title:   r.title,
     url:     r.url,
-    snippet: r.description || "",
+    snippet: r.content || "",
   }));
 
-  return { results, source: "brave" };
+  return { results, source: "tavily" };
 }
 
-// ── SerpAPI ───────────────────────────────────────────────────────────────────
+// -- SerpAPI ------------------------------------------------------------------
 
 async function _serpapi(query) {
   const url = `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&num=${MAX_RESULTS}&api_key=${SERPAPI_KEY}`;
@@ -72,7 +73,7 @@ async function _serpapi(query) {
   return { results, source: "serpapi" };
 }
 
-// ── DuckDuckGo instant answers (no key, limited) ──────────────────────────────
+// -- DuckDuckGo instant answers (no key, limited) ----------------------------
 
 async function _duckduckgo(query) {
   const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
@@ -112,7 +113,7 @@ async function execute(step) {
 
     if (results.length === 0) {
       return {
-        result: `Web search for "${step}" returned no results. The search backend used was: ${source}. Try rephrasing the query.`,
+        result: `Web search for "${step}" returned no results (backend: ${source}). Try rephrasing the query.`,
         usage: { input_tokens: 0, output_tokens: 0 },
         paymentReceipt: null,
       };
@@ -135,9 +136,8 @@ async function execute(step) {
   } catch (err) {
     logger.error("WebSearch: search failed", { error: err.message });
 
-    // Return a soft failure — Cortex will continue with next steps
     return {
-      result: `Web search failed: ${err.message}. No search API key may be configured (set BRAVE_SEARCH_API_KEY for best results).`,
+      result: `Web search failed: ${err.message}. Set TAVILY_API_KEY in .env.prod for best results (free at https://tavily.com).`,
       usage: { input_tokens: 0, output_tokens: 0 },
       paymentReceipt: null,
     };
